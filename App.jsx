@@ -668,7 +668,7 @@ export default function GolfTracker() {
     );
   }
 
-  if (true && !takeoverDismissed) {
+  if (tournamentComplete && !takeoverDismissed) {
     const winningTeam = totalPoints.a > totalPoints.b ? "Booth" : totalPoints.b > totalPoints.a ? "Fish" : null;
     const winColor = COLORS.navy;
     return (
