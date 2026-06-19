@@ -646,15 +646,7 @@ export default function GolfTracker() {
     return { a, b, possible };
   }, [rounds, matchesByRound, scoresByRound, players, courses]);
 
-  const tournamentComplete = useMemo(() => {
-    return rounds.every((r) => {
-      const matches = matchesByRound[r.id];
-      const required = players.length / 2 / matchSize(r.format);
-      if (matches.length !== required) return false;
-      const scores = scoresByRound[r.id] || emptyScores(r.holes);
-      return matches.every((m) => matchPlayState(m, r, scores, courses).holesPlayed === r.holes);
-    });
-  }, [rounds, matchesByRound, scoresByRound, players, courses]);
+const cupDecided = totalPoints.a >= totalPoints.possible / 2 + 0.5 || totalPoints.b >= totalPoints.possible / 2 + 0.5;
 
   function updateScore(roundId, holeIdx, playerId, value) {
     setScoresByRound((prev) => {
@@ -720,7 +712,7 @@ export default function GolfTracker() {
     );
   }
 
-  if (tournamentComplete && !takeoverDismissed) {
+  if (cupDecided && !takeoverDismissed) {
     const winningTeam = totalPoints.a > totalPoints.b ? "Booth" : totalPoints.b > totalPoints.a ? "Fish" : null;
     const winColor = COLORS.navy;
     return (
