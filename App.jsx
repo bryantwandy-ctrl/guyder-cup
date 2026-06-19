@@ -646,7 +646,7 @@ export default function GolfTracker() {
     return { a, b, possible };
   }, [rounds, matchesByRound, scoresByRound, players, courses]);
 
-const cupDecided = totalPoints.a >= totalPoints.possible / 2 + 0.5 || totalPoints.b >= totalPoints.possible / 2 + 0.5;
+  const cupDecided = totalPoints.a >= totalPoints.possible / 2 + 0.5 || totalPoints.b >= totalPoints.possible / 2 + 0.5;
 
   function updateScore(roundId, holeIdx, playerId, value) {
     setScoresByRound((prev) => {
@@ -1725,6 +1725,7 @@ function StatRow({ label, w, l, extra }) {
 
 function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, saveCourses }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   function updateRoundField(roundId, field, value) {
     const updated = rounds.map((r) => (r.id === roundId ? { ...r, [field]: value } : r));
@@ -1772,8 +1773,88 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
     saveCourses(updated);
   }
 
+  function updateStrokeIndex(courseName, holeIdx, value) {
+    const num = parseInt(value, 10);
+    const current = courses[courseName].strokeIndex || [];
+    const nextArr = [...current];
+    nextArr[holeIdx] = isNaN(num) ? null : num;
+    const updated = {
+      ...courses,
+      [courseName]: { ...courses[courseName], strokeIndex: nextArr },
+    };
+    saveCourses(updated);
+  }
+
+  function restoreDefaults() {
+    const confirmed = window.confirm(
+      "Restore all rounds, courses, tees, hole handicaps, and player handicap indexes back to the original defaults? This can't be undone."
+    );
+    if (!confirmed) return;
+    setRounds(defaultRounds);
+    saveCourses(defaultCourses);
+    savePlayers(defaultPlayers);
+  }
+
+  const lockedInputStyle = {
+    background: isEditing ? "#fff" : "#f1efe8",
+    cursor: isEditing ? "text" : "not-allowed",
+  };
+
   return (
     <div style={{ display: "grid", gap: 30 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 10,
+          background: "#fff",
+          border: `1px solid ${COLORS.line}`,
+          borderRadius: 3,
+          padding: "12px 16px",
+        }}
+      >
+        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>
+          {isEditing
+            ? "Editing is unlocked — changes save immediately."
+            : "Format & player settings are locked. Tap Edit to make changes."}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={restoreDefaults}
+            style={{
+              fontFamily: MONO,
+              fontSize: 12,
+              padding: "8px 14px",
+              background: "transparent",
+              border: `1px solid ${COLORS.flag}`,
+              color: COLORS.flag,
+              cursor: "pointer",
+              borderRadius: 3,
+            }}
+          >
+            Restore Defaults
+          </button>
+          <button
+            onClick={() => setIsEditing((v) => !v)}
+            style={{
+              fontFamily: MONO,
+              fontSize: 12,
+              padding: "8px 14px",
+              background: isEditing ? COLORS.navy : "transparent",
+              color: isEditing ? "#fff" : COLORS.navy,
+              border: `1px solid ${COLORS.navy}`,
+              cursor: "pointer",
+              borderRadius: 3,
+              textTransform: "uppercase",
+            }}
+          >
+            {isEditing ? "Done Editing" : "Edit"}
+          </button>
+        </div>
+      </div>
+
       <div>
         <SectionLabel>Event Format — {totalHoles} holes total</SectionLabel>
         <div style={{ display: "grid", gap: 10 }}>
@@ -1793,29 +1874,33 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
             >
               <input
                 value={r.label}
+                disabled={!isEditing}
                 onChange={(e) => updateRoundField(r.id, "label", e.target.value)}
-                style={{ fontFamily: SERIF, fontWeight: 600, border: "none", background: "transparent", fontSize: 15, width: 130 }}
+                style={{ ...lockedInputStyle, fontFamily: SERIF, fontWeight: 600, border: "none", fontSize: 15, width: 130 }}
               />
               <select
                 value={r.format}
+                disabled={!isEditing}
                 onChange={(e) => updateRoundField(r.id, "format", e.target.value)}
-                style={{ fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
+                style={{ ...lockedInputStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
               >
                 <option value="bestball">Two-man best ball (match play)</option>
                 <option value="singles">Singles (match play)</option>
               </select>
               <select
                 value={r.holes}
+                disabled={!isEditing}
                 onChange={(e) => updateRoundField(r.id, "holes", parseInt(e.target.value, 10))}
-                style={{ fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
+                style={{ ...lockedInputStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
               >
                 <option value={9}>9 holes</option>
                 <option value={18}>18 holes</option>
               </select>
               <select
                 value={r.course}
+                disabled={!isEditing}
                 onChange={(e) => updateRoundField(r.id, "course", e.target.value)}
-                style={{ fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
+                style={{ ...lockedInputStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
               >
                 {Object.keys(courses).map((c) => (
                   <option key={c} value={c}>
@@ -1829,58 +1914,6 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
         <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 10 }}>
           Each round is tied to a course. The specific tee each match plays is set per-match in
           the Pairings tab — matches in the same round can play different tees.
-        </div>
-      </div>
-
-      <div>
-        <SectionLabel>Courses & Tees</SectionLabel>
-        <div style={{ display: "grid", gap: 18 }}>
-          {Object.entries(courses).map(([courseName, course]) => (
-            <div key={courseName} style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
-              <div style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, marginBottom: 10 }}>{courseName}</div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {course.tees.map((t) => (
-                  <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    <input
-                      value={t.name}
-                      onChange={(e) => updateTee(courseName, t.id, "name", e.target.value)}
-                      placeholder="Tee name"
-                      style={{ width: 80, fontFamily: SERIF, fontSize: 14, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "5px 8px" }}
-                    />
-                    <LabeledNumber label="Rating" value={t.rating} step={0.1} onChange={(v) => updateTee(courseName, t.id, "rating", v)} />
-                    <LabeledNumber label="Slope" value={t.slope} step={1} onChange={(v) => updateTee(courseName, t.id, "slope", v)} />
-                    <LabeledNumber label="Par" value={t.par} step={1} onChange={(v) => updateTee(courseName, t.id, "par", v)} />
-                    <button
-                      onClick={() => removeTee(courseName, t.id)}
-                      style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
-                    >
-                      remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => addTee(courseName)}
-                  style={{
-                    fontFamily: MONO,
-                    fontSize: 12,
-                    padding: "8px",
-                    background: "transparent",
-                    border: `1px dashed ${COLORS.navy}`,
-                    color: COLORS.navy,
-                    cursor: "pointer",
-                    borderRadius: 3,
-                    width: "fit-content",
-                  }}
-                >
-                  + add tee
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 10 }}>
-          Course handicap = Index × (Slope / 113) + (Rating − Par), computed live per match using
-          whichever tee that match selected.
         </div>
       </div>
 
@@ -1940,8 +1973,10 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                         type="number"
                         step={0.1}
                         value={p.index}
+                        disabled={!isEditing}
                         onChange={(e) => updatePlayerIndex(p.id, e.target.value)}
                         style={{
+                          ...lockedInputStyle,
                           width: 56,
                           fontFamily: MONO,
                           fontSize: 13,
@@ -1964,12 +1999,101 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
           </div>
         )}
       </div>
+
+      <div>
+        <SectionLabel>Courses & Tees</SectionLabel>
+        <div style={{ display: "grid", gap: 18 }}>
+          {Object.entries(courses).map(([courseName, course]) => (
+            <div key={courseName} style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
+              <div style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, marginBottom: 10 }}>{courseName}</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {course.tees.map((t) => (
+                  <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <input
+                      value={t.name}
+                      disabled={!isEditing}
+                      onChange={(e) => updateTee(courseName, t.id, "name", e.target.value)}
+                      placeholder="Tee name"
+                      style={{ ...lockedInputStyle, width: 80, fontFamily: SERIF, fontSize: 14, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "5px 8px" }}
+                    />
+                    <LabeledNumber label="Rating" value={t.rating} step={0.1} disabled={!isEditing} onChange={(v) => updateTee(courseName, t.id, "rating", v)} />
+                    <LabeledNumber label="Slope" value={t.slope} step={1} disabled={!isEditing} onChange={(v) => updateTee(courseName, t.id, "slope", v)} />
+                    <LabeledNumber label="Par" value={t.par} step={1} disabled={!isEditing} onChange={(v) => updateTee(courseName, t.id, "par", v)} />
+                    {isEditing && (
+                      <button
+                        onClick={() => removeTee(courseName, t.id)}
+                        style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
+                      >
+                        remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {isEditing && (
+                  <button
+                    onClick={() => addTee(courseName)}
+                    style={{
+                      fontFamily: MONO,
+                      fontSize: 12,
+                      padding: "8px",
+                      background: "transparent",
+                      border: `1px dashed ${COLORS.navy}`,
+                      color: COLORS.navy,
+                      cursor: "pointer",
+                      borderRadius: 3,
+                      width: "fit-content",
+                    }}
+                  >
+                    + add tee
+                  </button>
+                )}
+              </div>
+
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${COLORS.line}` }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", color: COLORS.tan, textTransform: "uppercase", marginBottom: 8 }}>
+                  Hole Handicaps (1 = hardest, 18 = easiest)
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(60px, 1fr))", gap: 8 }}>
+                  {Array.from({ length: 18 }, (_, h) => (
+                    <div key={h} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: "#8a8470" }}>Hole {h + 1}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={18}
+                        disabled={!isEditing}
+                        value={course.strokeIndex?.[h] ?? ""}
+                        onChange={(e) => updateStrokeIndex(courseName, h, e.target.value)}
+                        style={{
+                          ...lockedInputStyle,
+                          width: 48,
+                          fontFamily: MONO,
+                          fontSize: 13,
+                          textAlign: "center",
+                          border: `1px solid ${COLORS.line}`,
+                          borderRadius: 3,
+                          padding: "4px 2px",
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 10 }}>
+          Course handicap = Index × (Slope / 113) + (Rating − Par), computed live per match using
+          whichever tee that match selected.
+        </div>
+      </div>
+
       {selectedPlayer && <PlayerStatsModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />}
     </div>
   );
 }
 
-function LabeledNumber({ label, value, step, onChange }) {
+function LabeledNumber({ label, value, step, onChange, disabled }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>{label}</span>
@@ -1977,8 +2101,18 @@ function LabeledNumber({ label, value, step, onChange }) {
         type="number"
         step={step}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        style={{ width: 60, fontFamily: MONO, fontSize: 13, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "5px 6px" }}
+        style={{
+          width: 60,
+          fontFamily: MONO,
+          fontSize: 13,
+          border: `1px solid ${COLORS.line}`,
+          borderRadius: 3,
+          padding: "5px 6px",
+          background: disabled ? "#f1efe8" : "#fff",
+          cursor: disabled ? "not-allowed" : "text",
+        }}
       />
     </div>
   );
