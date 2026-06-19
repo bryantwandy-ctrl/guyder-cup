@@ -26,6 +26,8 @@ function BrandFontLoader() {
         padding: 0;
         min-height: 100%;
         background: ${COLORS.cream};
+        overflow-x: hidden;
+        max-width: 100%;
       }
     `}</style>
   );
