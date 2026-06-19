@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
-// ---------- Design tokens ----------
 const COLORS = {
   fairway: "#1B4332",
   fairwayDark: "#0F2A1D",
@@ -15,13 +14,12 @@ const COLORS = {
 const SERIF = "'Source Serif Pro', Georgia, 'Times New Roman', serif";
 const MONO = "'IBM Plex Mono', 'Courier New', monospace";
 
-const TOURNAMENT_ID = "guyder-cup-2026"; // bump this each year to keep scores separate
+const TOURNAMENT_ID = "guyder-cup-2026";
 const POLL_MS = 5000;
 
 const TEAM_BOOTH = "Booth";
 const TEAM_FISH = "Fish";
 
-// ---------- Roster ----------
 const defaultPlayers = [
   { id: 1, name: "Booth", team: TEAM_BOOTH, index: 17.2 },
   { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 4.6 },
@@ -43,7 +41,6 @@ const defaultPlayers = [
 
 const alternates = [{ id: 99, name: "Aaron Jackson (17th man)" }];
 
-// ---------- Courses & tees ----------
 const defaultCourses = {
   Highlands: {
     strokeIndex: [5, 1, 17, 13, 11, 9, 15, 7, 3, 16, 10, 2, 18, 8, 12, 6, 14, 4],
@@ -80,13 +77,19 @@ function courseHandicap(index, tee) {
   return Math.round(index * (tee.slope / 113) + (tee.rating - tee.par));
 }
 
-function strokesReceived(player, tee, courseStrokeIndex, holeIdx) {
+function matchLowestHandicap(match, tee) {
+  const all = [...match.side1, ...match.side2];
+  const hcps = all.map((p) => courseHandicap(p.index, tee)).filter((h) => h != null);
+  if (hcps.length === 0) return 0;
+  return Math.min(...hcps);
+}
+
+function strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx) {
   const hcp = courseHandicap(player.index, tee);
   if (hcp == null) return 0;
+  const allowance = Math.min(Math.max(hcp - lowestHcp, 0), 18);
   const si = courseStrokeIndex ? courseStrokeIndex[holeIdx] : holeIdx + 1;
-  const base = Math.floor(hcp / 18);
-  const extra = si <= ((hcp % 18) + 18) % 18 ? 1 : 0;
-  return base + extra;
+  return si <= allowance ? 1 : 0;
 }
 
 const defaultRounds = [
@@ -134,26 +137,27 @@ function unassignedPlayers(pairings, players, team) {
   return players.filter((p) => p.team === team && !used.has(p.id));
 }
 
-function netBestBallScore(players, tee, courseStrokeIndex, scores, holeIdx) {
+function netBestBallScore(players, tee, courseStrokeIndex, lowestHcp, scores, holeIdx) {
   const nets = players.map((p) => {
     const gross = scores?.[holeIdx]?.[p.id];
     if (gross == null) return null;
-    return gross - strokesReceived(p, tee, courseStrokeIndex, holeIdx);
+    return gross - strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx);
   });
   if (nets.some((n) => n == null)) return null;
   return Math.min(...nets);
 }
 
-function netSinglesScore(player, tee, courseStrokeIndex, scores, holeIdx) {
+function netSinglesScore(player, tee, courseStrokeIndex, lowestHcp, scores, holeIdx) {
   const gross = scores?.[holeIdx]?.[player.id];
   if (gross == null) return null;
-  return gross - strokesReceived(player, tee, courseStrokeIndex, holeIdx);
+  return gross - strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx);
 }
 
 function matchPlayState(match, round, scores, courses) {
   const { format, holes } = round;
   const tee = findTee(courses, round.course, match.teeId);
   const courseStrokeIndex = courses[round.course]?.strokeIndex;
+  const lowestHcp = tee ? matchLowestHandicap(match, tee) : 0;
   let diff = 0;
   let holesPlayed = 0;
   let decided = false;
@@ -162,11 +166,11 @@ function matchPlayState(match, round, scores, courses) {
   for (let h = 0; h < holes; h++) {
     let s1, s2;
     if (format === "bestball") {
-      s1 = netBestBallScore(match.side1, tee, courseStrokeIndex, scores, h);
-      s2 = netBestBallScore(match.side2, tee, courseStrokeIndex, scores, h);
+      s1 = netBestBallScore(match.side1, tee, courseStrokeIndex, lowestHcp, scores, h);
+      s2 = netBestBallScore(match.side2, tee, courseStrokeIndex, lowestHcp, scores, h);
     } else {
-      s1 = netSinglesScore(match.side1[0], tee, courseStrokeIndex, scores, h);
-      s2 = netSinglesScore(match.side2[0], tee, courseStrokeIndex, scores, h);
+      s1 = netSinglesScore(match.side1[0], tee, courseStrokeIndex, lowestHcp, scores, h);
+      s2 = netSinglesScore(match.side2[0], tee, courseStrokeIndex, lowestHcp, scores, h);
     }
     if (s1 == null || s2 == null) break;
     holesPlayed = h + 1;
@@ -217,6 +221,9 @@ function pairingsKey(roundId) {
 }
 function coursesKey() {
   return `${TOURNAMENT_ID}:courses`;
+}
+function playersKey() {
+  return `${TOURNAMENT_ID}:players`;
 }
 
 async function loadJSON(key, fallback) {
@@ -317,7 +324,7 @@ function LiveDot({ syncing }) {
 }
 
 export default function GolfTracker() {
-  const [players] = useState(defaultPlayers);
+  const [players, setPlayers] = useState(defaultPlayers);
   const [rounds, setRounds] = useState(defaultRounds);
   const [courses, setCourses] = useState(defaultCourses);
   const [activeRound, setActiveRound] = useState(0);
@@ -355,10 +362,12 @@ export default function GolfTracker() {
         nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings());
       }
       const loadedCourses = await loadJSON(coursesKey(), defaultCourses);
+      const loadedPlayers = await loadJSON(playersKey(), defaultPlayers);
       if (!cancelled) {
         setScoresByRound(nextScores);
         setPairingsByRound(nextPairings);
         setCourses(loadedCourses);
+        setPlayers(loadedPlayers);
         setLoaded(true);
       }
     })();
@@ -379,9 +388,11 @@ export default function GolfTracker() {
         nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings());
       }
       const loadedCourses = await loadJSON(coursesKey(), defaultCourses);
+      const loadedPlayers = await loadJSON(playersKey(), defaultPlayers);
       setScoresByRound(nextScores);
       setPairingsByRound(nextPairings);
       setCourses(loadedCourses);
+      setPlayers(loadedPlayers);
       setSyncing(false);
     }, POLL_MS);
     return () => clearInterval(interval);
@@ -428,6 +439,14 @@ export default function GolfTracker() {
   function saveCourses(updated) {
     setCourses(updated);
     saveJSON(coursesKey(), updated);
+  }
+
+  function savePlayers(updated) {
+    setPlayers(updated);
+    saveJSON(playersKey(), updated).then((res) => {
+      if (!res.ok) setSaveError(`Couldn't save handicaps: ${res.error}`);
+      else setSaveError(null);
+    });
   }
 
   const round = rounds[activeRound];
@@ -566,6 +585,7 @@ export default function GolfTracker() {
         {tab === "setup" && (
           <Setup
             players={players}
+            savePlayers={savePlayers}
             rounds={rounds}
             setRounds={setRounds}
             alternates={alternates}
@@ -712,6 +732,7 @@ function ScoreEntry({
   const [holeIdx, setHoleIdx] = useState(0);
   const myMatch = matches.find((m) => m.id === myMatchId);
   const tee = myMatch ? findTee(courses, round.course, myMatch.teeId) : null;
+  const lowestHcp = myMatch && tee ? matchLowestHandicap(myMatch, tee) : 0;
 
   return (
     <div>
@@ -801,9 +822,9 @@ function ScoreEntry({
 
           <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} />
+              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} />
               <div style={{ width: 1, background: COLORS.line, alignSelf: "stretch" }} />
-              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} />
+              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} />
             </div>
           </div>
         </div>
@@ -855,12 +876,13 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
   );
 }
 
-function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, courseStrokeIndex }) {
+function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, courseStrokeIndex, lowestHcp }) {
   return (
     <div style={{ flex: 1, minWidth: 200, display: "grid", gap: 8 }}>
       {players.map((p) => {
-        const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, holeIdx) : 0;
+        const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx) : 0;
         const hcp = tee ? courseHandicap(p.index, tee) : null;
+        const allowance = hcp != null ? Math.max(hcp - lowestHcp, 0) : null;
         const gross = scores?.[holeIdx]?.[p.id];
         return (
           <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -869,6 +891,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
               <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
                 index {p.index}
                 {hcp != null ? ` · course hcp ${hcp}` : ""}
+                {allowance != null ? ` · plays off low man at +${allowance}` : ""}
                 {strokes > 0 ? ` · +${strokes} this hole` : ""}
               </div>
             </div>
@@ -1089,9 +1112,16 @@ function PlayerPicker({ color, list, selected, onToggle }) {
   );
 }
 
-function Setup({ players, rounds, setRounds, alternates, courses, saveCourses }) {
+function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, saveCourses }) {
   function updateRoundField(roundId, field, value) {
     setRounds((prev) => prev.map((r) => (r.id === roundId ? { ...r, [field]: value } : r)));
+  }
+
+  function updatePlayerIndex(playerId, value) {
+    const updated = players.map((p) =>
+      p.id === playerId ? { ...p, index: parseFloat(value) || 0 } : p
+    );
+    savePlayers(updated);
   }
 
   const boothPlayers = players.filter((p) => p.team === TEAM_BOOTH);
@@ -1242,6 +1272,11 @@ function Setup({ players, rounds, setRounds, alternates, courses, saveCourses })
 
       <div>
         <SectionLabel>Roster & Handicap Index</SectionLabel>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 12 }}>
+          Edit a player's index here any time before or during the event — every course
+          handicap, stroke allowance, and live match result recalculates from this number
+          automatically, no redeploy needed.
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
           {[
             { label: "Booth", color: COLORS.fairway, list: boothPlayers },
@@ -1258,6 +1293,7 @@ function Setup({ players, rounds, setRounds, alternates, courses, saveCourses })
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
+                      alignItems: "center",
                       background: "#fff",
                       border: `1px solid ${COLORS.line}`,
                       borderRadius: 3,
@@ -1267,7 +1303,24 @@ function Setup({ players, rounds, setRounds, alternates, courses, saveCourses })
                     }}
                   >
                     <span style={{ fontFamily: SERIF, fontSize: 14 }}>{p.name}</span>
-                    <span style={{ color: "#8a8470" }}>index {p.index}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "#8a8470" }}>index</span>
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={p.index}
+                        onChange={(e) => updatePlayerIndex(p.id, e.target.value)}
+                        style={{
+                          width: 56,
+                          fontFamily: MONO,
+                          fontSize: 13,
+                          border: `1px solid ${COLORS.line}`,
+                          borderRadius: 3,
+                          padding: "4px 6px",
+                          textAlign: "center",
+                        }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
