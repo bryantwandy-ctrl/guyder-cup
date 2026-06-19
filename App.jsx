@@ -748,8 +748,8 @@ export default function GolfTracker() {
               </div>
               <LiveDot syncing={syncing} />
             </div>
-            <h1 style={{ margin: 0, fontSize: 0, lineHeight: 0 }}>
-              <span style={{ fontFamily: SCRIPT, fontSize: 52, color: COLORS.navy, lineHeight: 1 }}>
+         <h1 style={{ margin: 0, fontSize: 0, lineHeight: 0 }}>
+              <span style={{ fontFamily: SCRIPT, fontSize: 52, color: COLORS.navy, lineHeight: 1.3, display: "inline-block" }}>
                 Guyder
               </span>
               <span
@@ -760,7 +760,7 @@ export default function GolfTracker() {
                   letterSpacing: "0.3em",
                   color: COLORS.navy,
                   textTransform: "uppercase",
-                  marginTop: 4,
+                  marginTop: 14,
                 }}
               >
                 Cup
