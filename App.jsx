@@ -1171,10 +1171,28 @@ function ScoreEntry({
       ) : (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-            <SectionLabel>
-              {round.label} ({round.course}{tee ? `, ${tee.name} tees` : ""}) — Hole {holeIdx + 1} of {round.holes}
-              {holeHandicap != null && ` · Hole Handicap ${holeHandicap}`}
-            </SectionLabel>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <SectionLabel>
+                {round.label} ({round.course}{tee ? `, ${tee.name} tees` : ""}) — Hole {holeIdx + 1} of {round.holes}
+              </SectionLabel>
+              {holeHandicap != null && (
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: COLORS.navy,
+                    background: COLORS.cream,
+                    border: `1px solid ${COLORS.navy}`,
+                    borderRadius: 3,
+                    padding: "3px 8px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Hole Handicap {holeHandicap}
+                </span>
+              )}
+            </div>
             <button
               onClick={() => setMyMatchId(null)}
               style={{
