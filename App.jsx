@@ -4,15 +4,26 @@ import { supabase } from "./supabaseClient";
 const COLORS = {
   fairway: "#1B4332",
   fairwayDark: "#0F2A1D",
-  cream: "#F3EEE2",
+  cream: "#F5F6F9",
   tan: "#C9A66B",
   flag: "#B5392E",
   ink: "#1C1C1A",
   line: "#D8D0BC",
+  navy: "#00193A",
+  navyDark: "#000F24",
 };
 
 const SERIF = "'Source Serif Pro', Georgia, 'Times New Roman', serif";
 const MONO = "'IBM Plex Mono', 'Courier New', monospace";
+const SCRIPT = "'Yellowtail', cursive";
+
+function BrandFontLoader() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Yellowtail&display=swap');
+    `}</style>
+  );
+}
 
 const TOURNAMENT_ID = "guyder-cup-2026";
 const POLL_MS = 5000;
@@ -21,22 +32,22 @@ const TEAM_BOOTH = "Booth";
 const TEAM_FISH = "Fish";
 
 const defaultPlayers = [
-  { id: 1, name: "Booth", team: TEAM_BOOTH, index: 17.2 },
-  { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 4.6 },
-  { id: 3, name: "Niemeyer", team: TEAM_BOOTH, index: 8.1 },
-  { id: 4, name: "Rams", team: TEAM_BOOTH, index: 11.6 },
-  { id: 5, name: "Rio", team: TEAM_BOOTH, index: 11.8 },
-  { id: 6, name: "AB", team: TEAM_BOOTH, index: 17.8 },
-  { id: 7, name: "Bobby", team: TEAM_BOOTH, index: 20.5 },
-  { id: 8, name: "J4", team: TEAM_BOOTH, index: 9.6 },
-  { id: 9, name: "Fish", team: TEAM_FISH, index: 3.2 },
-  { id: 10, name: "Danny", team: TEAM_FISH, index: 7.5 },
-  { id: 11, name: "Rames", team: TEAM_FISH, index: 8.6 },
-  { id: 12, name: "Bearman", team: TEAM_FISH, index: 9.4 },
-  { id: 13, name: "Littel", team: TEAM_FISH, index: 15.6 },
-  { id: 14, name: "Larson", team: TEAM_FISH, index: 8.4 },
-  { id: 15, name: "Doug", team: TEAM_FISH, index: 23.6 },
-  { id: 16, name: "Meyer", team: TEAM_FISH, index: 20.8 },
+  { id: 1, name: "Booth", team: TEAM_BOOTH, index: 17.2, photo: "/photos/booth.jpg" },
+  { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 4.6, photo: null },
+  { id: 3, name: "Niemeyer", team: TEAM_BOOTH, index: 8.1, photo: "/photos/niemeyer.jpg" },
+  { id: 4, name: "Rams", team: TEAM_BOOTH, index: 11.6, photo: "/photos/rams.jpg" },
+  { id: 5, name: "Rio", team: TEAM_BOOTH, index: 11.8, photo: "/photos/rio.jpg" },
+  { id: 6, name: "AB", team: TEAM_BOOTH, index: 17.8, photo: "/photos/ab.jpg" },
+  { id: 7, name: "Bobby", team: TEAM_BOOTH, index: 20.5, photo: "/photos/bobby.jpg" },
+  { id: 8, name: "J4", team: TEAM_BOOTH, index: 9.6, photo: null },
+  { id: 9, name: "Fish", team: TEAM_FISH, index: 3.2, photo: "/photos/fish.jpg" },
+  { id: 10, name: "Danny", team: TEAM_FISH, index: 7.5, photo: "/photos/danny.jpg" },
+  { id: 11, name: "Rames", team: TEAM_FISH, index: 8.6, photo: "/photos/rames.jpg" },
+  { id: 12, name: "Bearman", team: TEAM_FISH, index: 9.4, photo: "/photos/bearman.jpg" },
+  { id: 13, name: "Littel", team: TEAM_FISH, index: 15.6, photo: null },
+  { id: 14, name: "Larson", team: TEAM_FISH, index: 8.4, photo: "/photos/larson.jpg" },
+  { id: 15, name: "Doug", team: TEAM_FISH, index: 23.6, photo: null },
+  { id: 16, name: "Meyer", team: TEAM_FISH, index: 20.8, photo: "/photos/meyer.jpg" },
 ];
 
 const alternates = [{ id: 99, name: "Aaron Jackson (17th man)" }];
@@ -354,9 +365,9 @@ function TabButton({ active, onClick, children }) {
         fontSize: 15,
         letterSpacing: "0.04em",
         padding: "10px 18px",
-        background: active ? COLORS.fairway : "transparent",
-        color: active ? COLORS.cream : COLORS.fairway,
-        border: `1px solid ${COLORS.fairway}`,
+        background: active ? COLORS.navy : "transparent",
+        color: active ? "#fff" : COLORS.navy,
+        border: `1px solid ${COLORS.navy}`,
         borderRadius: 2,
         cursor: "pointer",
         textTransform: "uppercase",
@@ -410,6 +421,48 @@ function LiveDot({ syncing }) {
         }}
       />
       {syncing ? "syncing" : "live"}
+    </div>
+  );
+}
+
+function Avatar({ player, size = 32 }) {
+  const [errored, setErrored] = useState(false);
+  const showImg = player?.photo && !errored;
+  const initial = player?.name ? player.name.charAt(0).toUpperCase() : "?";
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        overflow: "hidden",
+        flexShrink: 0,
+        background: COLORS.navy,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: `1px solid ${COLORS.line}`,
+      }}
+    >
+      {showImg ? (
+        <img
+          src={player.photo}
+          alt={player.name}
+          onError={() => setErrored(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        <span
+          style={{
+            fontFamily: MONO,
+            color: COLORS.cream,
+            fontSize: size * 0.4,
+            fontWeight: 700,
+          }}
+        >
+          {initial}
+        </span>
+      )}
     </div>
   );
 }
@@ -567,7 +620,7 @@ export default function GolfTracker() {
           alignItems: "center",
           justifyContent: "center",
           fontFamily: MONO,
-          color: COLORS.fairway,
+          color: COLORS.navy,
         }}
       >
         loading scores…
@@ -659,7 +712,9 @@ export default function GolfTracker() {
   }
 
   return (
-    <div
+    <>
+      <BrandFontLoader />
+      <div
       style={{
         minHeight: "100vh",
         background: COLORS.cream,
@@ -674,7 +729,7 @@ export default function GolfTracker() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
-            borderBottom: `3px solid ${COLORS.fairway}`,
+            borderBottom: `3px solid ${COLORS.navy}`,
             paddingBottom: 14,
           }}
         >
@@ -693,7 +748,24 @@ export default function GolfTracker() {
               </div>
               <LiveDot syncing={syncing} />
             </div>
-            <h1 style={{ margin: 0, fontSize: 34, fontWeight: 600 }}>The Guyder Cup</h1>
+            <h1 style={{ margin: 0, fontSize: 0, lineHeight: 0 }}>
+              <span style={{ fontFamily: SCRIPT, fontSize: 52, color: COLORS.navy, lineHeight: 1 }}>
+                Guyder
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  fontFamily: MONO,
+                  fontSize: 13,
+                  letterSpacing: "0.3em",
+                  color: COLORS.navy,
+                  textTransform: "uppercase",
+                  marginTop: 4,
+                }}
+              >
+                Cup
+              </span>
+            </h1>
           </div>
           <div style={{ textAlign: "right" }}>
             <Scoreline totalPoints={totalPoints} winNeeded={winNeeded} />
@@ -780,6 +852,7 @@ export default function GolfTracker() {
         )}
       </div>
     </div>
+    </>
   );
 }
 
@@ -825,7 +898,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
               <div
                 style={{
                   padding: "10px 16px",
-                  background: COLORS.fairway,
+                  background: COLORS.navy,
                   color: COLORS.cream,
                   fontFamily: MONO,
                   fontSize: 12,
@@ -864,13 +937,20 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                         gap: 12,
                       }}
                     >
-                      <div style={{ textAlign: "right", fontWeight: state.leader === "side1" ? 700 : 400 }}>
-                        {m.side1.map((p) => p.name).join(" / ")}
-                        {odds && (
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
-                            {formatOdds(odds.side1)}
-                          </div>
-                        )}
+                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, fontWeight: state.leader === "side1" ? 700 : 400 }}>
+                        <div style={{ textAlign: "right" }}>
+                          {m.side1.map((p) => p.name).join(" / ")}
+                          {odds && (
+                            <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
+                              {formatOdds(odds.side1)}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex" }}>
+                          {m.side1.map((p) => (
+                            <Avatar key={p.id} player={p} size={28} />
+                          ))}
+                        </div>
                       </div>
                       <div
                         style={{
@@ -893,13 +973,20 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                           <div style={{ fontSize: 10, color: "#a39c87", marginTop: 2 }}>{state.tee.name} tees</div>
                         )}
                       </div>
-                      <div style={{ fontWeight: state.leader === "side2" ? 700 : 400 }}>
-                        {m.side2.map((p) => p.name).join(" / ")}
-                        {odds && (
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
-                            {formatOdds(odds.side2)}
-                          </div>
-                        )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: state.leader === "side2" ? 700 : 400 }}>
+                        <div style={{ display: "flex" }}>
+                          {m.side2.map((p) => (
+                            <Avatar key={p.id} player={p} size={28} />
+                          ))}
+                        </div>
+                        <div>
+                          {m.side2.map((p) => p.name).join(" / ")}
+                          {odds && (
+                            <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
+                              {formatOdds(odds.side2)}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -1010,706 +1097,4 @@ function ScoreEntry({
             >
               <span>
                 {odds.live ? "live line" : "pregame line"}: {myMatch.side1.map((p) => p.name).join("/")}{" "}
-                {formatOdds(odds.side1)} · {myMatch.side2.map((p) => p.name).join("/")} {formatOdds(odds.side2)}
-              </span>
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
-            {Array.from({ length: round.holes }, (_, h) => (
-              <button
-                key={h}
-                onClick={() => setHoleIdx(h)}
-                style={{
-                  width: 30,
-                  height: 30,
-                  fontFamily: MONO,
-                  fontSize: 12,
-                  border: `1px solid ${COLORS.line}`,
-                  background: h === holeIdx ? COLORS.tan : "#fff",
-                  color: h === holeIdx ? "#fff" : COLORS.ink,
-                  cursor: "pointer",
-                  borderRadius: 2,
-                }}
-              >
-                {h + 1}
-              </button>
-            ))}
-          </div>
-
-          {hResult.complete && (
-            <div
-              style={{
-                fontFamily: MONO,
-                fontSize: 13,
-                marginBottom: 14,
-                padding: "8px 12px",
-                background: hResult.winner === "halve" ? "#f0ece1" : "#fff3cd",
-                border: `1px solid ${COLORS.tan}`,
-                borderRadius: 3,
-              }}
-            >
-              {hResult.winner === "halve"
-                ? "Hole halved"
-                : `${(hResult.winner === "side1" ? myMatch.side1 : myMatch.side2).map((p) => p.name).join("/")} win the hole`}
-            </div>
-          )}
-
-          <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
-            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} />
-              <div style={{ width: 1, background: COLORS.line, alignSelf: "stretch" }} />
-              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MatchPicker({ round, matches, scores, onPick, courses }) {
-  return (
-    <div>
-      <SectionLabel>Which match are you scoring? — {round.label}</SectionLabel>
-      <div style={{ display: "grid", gap: 10 }}>
-        {matches.map((m) => {
-          const state = matchPlayState(m, round, scores, courses);
-          return (
-            <button
-              key={m.id}
-              onClick={() => onPick(m.id)}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto 1fr",
-                alignItems: "center",
-                gap: 12,
-                padding: "14px 16px",
-                background: "#fff",
-                border: `1px solid ${COLORS.line}`,
-                borderRadius: 3,
-                cursor: "pointer",
-                fontFamily: SERIF,
-                fontSize: 15,
-                textAlign: "left",
-              }}
-            >
-              <div style={{ textAlign: "right" }}>{m.side1.map((p) => p.name).join(" / ")}</div>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", minWidth: 100, textAlign: "center" }}>
-                <div>{state.holesPlayed > 0 ? `thru ${state.holesPlayed}` : "not started"}</div>
-                {state.tee && <div style={{ fontSize: 10 }}>{state.tee.name} tees</div>}
-              </div>
-              <div>{m.side2.map((p) => p.name).join(" / ")}</div>
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 14 }}>
-        Pick the match you're playing in.
-      </div>
-    </div>
-  );
-}
-
-function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, courseStrokeIndex, lowestHcp, carriedBy }) {
-  return (
-    <div style={{ flex: 1, minWidth: 200, display: "grid", gap: 8 }}>
-      {players.map((p) => {
-        const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx) : 0;
-        const hcp = tee ? courseHandicap(p.index, tee) : null;
-        const isLowMan = hcp != null && hcp === lowestHcp;
-        const gross = scores?.[holeIdx]?.[p.id];
-        const net = gross != null ? gross - strokes : null;
-        const carried = carriedBy === p.id;
-        return (
-          <div
-            key={p.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 10,
-              padding: carried ? "6px 8px" : "0",
-              background: carried ? "#fff3cd" : "transparent",
-              border: carried ? `1px solid ${COLORS.tan}` : "none",
-              borderRadius: 3,
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 600 }}>
-                {p.name}
-                {isLowMan && (
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.tan, marginLeft: 6, textTransform: "uppercase" }}>
-                    low man
-                  </span>
-                )}
-                {carried && (
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.flag, marginLeft: 6, textTransform: "uppercase" }}>
-                    carried it
-                  </span>
-                )}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
-                index {p.index}
-                {hcp != null ? ` · course hcp ${hcp}` : ""}
-                {!isLowMan && strokes > 0 ? ` · +${strokes} this hole` : ""}
-                {net != null && net !== gross ? ` · net ${net}` : ""}
-              </div>
-            </div>
-            <input
-              type="number"
-              min={1}
-              max={15}
-              value={gross ?? ""}
-              onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
-              placeholder="—"
-              style={{
-                width: 48,
-                height: 36,
-                textAlign: "center",
-                fontFamily: MONO,
-                fontSize: 16,
-                border: `1px solid ${COLORS.line}`,
-                borderRadius: 3,
-              }}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function Pairings({ rounds, activeRound, setActiveRound, round, players, pairings, savePairings, courses }) {
-  const size = matchSize(round.format);
-  const numMatches = players.length / 2 / size;
-  const complete = pairingsComplete(pairings, players, round.format);
-  const matches = buildMatchesFromPairings(pairings, players, round.format);
-  const availableTees = courses[round.course]?.tees || [];
-
-  const [selBooth, setSelBooth] = useState([]);
-  const [selFish, setSelFish] = useState([]);
-  const [newTeeId, setNewTeeId] = useState(availableTees[0]?.id || "");
-
-  useEffect(() => {
-    setSelBooth([]);
-    setSelFish([]);
-    setNewTeeId(availableTees[0]?.id || "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round.id]);
-
-  const unBooth = unassignedPlayers(pairings, players, TEAM_BOOTH);
-  const unFish = unassignedPlayers(pairings, players, TEAM_FISH);
-
-  function toggleSelect(list, setList, playerId) {
-    setList((prev) => {
-      if (prev.includes(playerId)) return prev.filter((id) => id !== playerId);
-      if (prev.length >= size) return prev;
-      return [...prev, playerId];
-    });
-  }
-
-  function addMatch() {
-    if (selBooth.length !== size || selFish.length !== size) return;
-    const newMatch = {
-      id: `m-${Date.now()}`,
-      side1: selBooth,
-      side2: selFish,
-      teeId: newTeeId || null,
-    };
-    const updated = { matches: [...(pairings?.matches || []), newMatch] };
-    savePairings(round.id, updated);
-    setSelBooth([]);
-    setSelFish([]);
-  }
-
-  function removeMatch(matchId) {
-    const updated = { matches: (pairings?.matches || []).filter((m) => m.id !== matchId) };
-    savePairings(round.id, updated);
-  }
-
-  function changeTee(matchId, teeId) {
-    const updated = {
-      matches: (pairings?.matches || []).map((m) => (m.id === matchId ? { ...m, teeId } : m)),
-    };
-    savePairings(round.id, updated);
-  }
-
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
-        {rounds.map((r, i) => (
-          <TabButton key={r.id} active={i === activeRound} onClick={() => setActiveRound(i)}>
-            {r.label}
-          </TabButton>
-        ))}
-      </div>
-
-      <SectionLabel>
-        {round.label} — {round.format === "bestball" ? "two-man teams" : "singles"} ({round.course}) ·{" "}
-        {complete ? `all ${numMatches} matches set` : `${matches.length} of ${numMatches} set`}
-      </SectionLabel>
-
-      {matches.length > 0 && (
-        <div style={{ display: "grid", gap: 10, marginBottom: 22 }}>
-          {matches.map((m) => (
-            <div
-              key={m.id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto auto",
-                alignItems: "center",
-                gap: 10,
-                background: "#fff",
-                border: `1px solid ${COLORS.line}`,
-                borderRadius: 3,
-                padding: "10px 14px",
-              }}
-            >
-              <div style={{ fontFamily: SERIF, fontSize: 14 }}>
-                {m.side1.map((p) => p.name).join(" / ")}
-                <span style={{ color: "#a39c87" }}> vs </span>
-                {m.side2.map((p) => p.name).join(" / ")}
-              </div>
-              <select
-                value={m.teeId || ""}
-                onChange={(e) => changeTee(m.id, e.target.value)}
-                style={{ fontFamily: MONO, fontSize: 12, padding: "5px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
-              >
-                <option value="">no tee set</option>
-                {availableTees.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} tees
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => removeMatch(m.id)}
-                style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
-              >
-                remove
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!complete && (
-        <div style={{ background: "#fff", border: `1px dashed ${COLORS.fairway}`, borderRadius: 3, padding: "16px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 12 }}>
-            Tap {size === 2 ? "two" : "one"} player{size === 2 ? "s" : ""} from each team to build the next match.
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 14 }}>
-            <PlayerPicker color={COLORS.fairway} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} />
-            <PlayerPicker color={COLORS.flag} list={unFish} selected={selFish} onToggle={(id) => toggleSelect(selFish, setSelFish, id)} />
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <select
-              value={newTeeId}
-              onChange={(e) => setNewTeeId(e.target.value)}
-              style={{ fontFamily: MONO, fontSize: 13, padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
-            >
-              <option value="">no tee set</option>
-              {availableTees.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} tees
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={addMatch}
-              disabled={selBooth.length !== size || selFish.length !== size}
-              style={{
-                fontFamily: MONO,
-                fontSize: 13,
-                padding: "10px 16px",
-                background: selBooth.length === size && selFish.length === size ? COLORS.fairway : "#ddd6c4",
-                color: selBooth.length === size && selFish.length === size ? COLORS.cream : "#a39c87",
-                border: "none",
-                borderRadius: 3,
-                cursor: selBooth.length === size && selFish.length === size ? "pointer" : "default",
-              }}
-            >
-              + add match
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PlayerPicker({ color, list, selected, onToggle }) {
-  return (
-    <div style={{ display: "grid", gap: 6 }}>
-      {list.map((p) => {
-        const isSel = selected.includes(p.id);
-        return (
-          <button
-            key={p.id}
-            onClick={() => onToggle(p.id)}
-            style={{
-              textAlign: "left",
-              fontFamily: SERIF,
-              fontSize: 14,
-              padding: "8px 10px",
-              border: `1px solid ${isSel ? color : COLORS.line}`,
-              background: isSel ? color : "#fff",
-              color: isSel ? "#fff" : COLORS.ink,
-              borderRadius: 3,
-              cursor: "pointer",
-            }}
-          >
-            {p.name}
-          </button>
-        );
-      })}
-      {list.length === 0 && (
-        <div style={{ fontFamily: MONO, fontSize: 12, color: "#a39c87", padding: "8px 0" }}>
-          everyone's assigned
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PlayerStatsModal({ player, onClose }) {
-  const history = playerHistory[player.id];
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15,42,29,0.65)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-        padding: 20,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: COLORS.cream,
-          borderRadius: 4,
-          padding: "24px 28px",
-          maxWidth: 420,
-          width: "100%",
-          border: `2px solid ${COLORS.fairway}`,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-          <h2 style={{ margin: 0, fontFamily: SERIF, fontSize: 24 }}>{player.name}</h2>
-          <button onClick={onClose} style={{ border: "none", background: "transparent", fontFamily: MONO, fontSize: 13, color: COLORS.tan, cursor: "pointer" }}>
-            close
-          </button>
-        </div>
-        {!history || !history.overall ? (
-          <div style={{ fontFamily: MONO, fontSize: 13, color: "#8a8470", marginTop: 12 }}>
-            No historical record on file for this player.
-          </div>
-        ) : (
-          <div style={{ marginTop: 14 }}>
-            {history.fullName && (
-              <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 4 }}>
-                {history.fullName}
-                {history.inferred ? " (best-guess match to current roster name)" : ""}
-              </div>
-            )}
-            {history.notes && (
-              <div style={{ fontFamily: MONO, fontSize: 12, color: COLORS.tan, marginBottom: 14 }}>{history.notes}</div>
-            )}
-            <StatRow label="Overall Guyder Record" w={history.overall.w} l={history.overall.l} extra={`${Math.round(history.overall.winPct * 100)}%`} />
-            {history.captain && (
-              <StatRow label="Captain's Record" w={history.captain.w} l={history.captain.l} extra={`${Math.round(history.captain.winPct * 100)}%`} />
-            )}
-            {history.matchRecord && (
-              <>
-                <StatRow
-                  label="Match Record (since 2022)"
-                  w={history.matchRecord.w}
-                  l={history.matchRecord.l}
-                  extra={`${history.matchRecord.as} AS`}
-                />
-                <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 8 }}>
-                  {history.matchRecord.points} points across {history.matchRecord.matches} matches
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StatRow({ label, w, l, extra }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${COLORS.line}` }}>
-      <span style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>{label}</span>
-      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>
-        {w}-{l} <span style={{ color: "#8a8470", fontWeight: 400 }}>({extra})</span>
-      </span>
-    </div>
-  );
-}
-
-function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, saveCourses }) {
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-
-  function updateRoundField(roundId, field, value) {
-    setRounds((prev) => prev.map((r) => (r.id === roundId ? { ...r, [field]: value } : r)));
-  }
-
-  function updatePlayerIndex(playerId, value) {
-    const updated = players.map((p) =>
-      p.id === playerId ? { ...p, index: parseFloat(value) || 0 } : p
-    );
-    savePlayers(updated);
-  }
-
-  const boothPlayers = players.filter((p) => p.team === TEAM_BOOTH);
-  const fishPlayers = players.filter((p) => p.team === TEAM_FISH);
-  const totalHoles = rounds.reduce((s, r) => s + r.holes, 0);
-
-  function updateTee(courseName, teeId, field, value) {
-    const updated = {
-      ...courses,
-      [courseName]: {
-        ...courses[courseName],
-        tees: courses[courseName].tees.map((t) =>
-          t.id === teeId ? { ...t, [field]: field === "name" ? value : parseFloat(value) || 0 } : t
-        ),
-      },
-    };
-    saveCourses(updated);
-  }
-
-  function addTee(courseName) {
-    const newTee = { id: `tee-${Date.now()}`, name: "New", rating: 72.0, slope: 130, par: 72 };
-    const updated = {
-      ...courses,
-      [courseName]: { ...courses[courseName], tees: [...courses[courseName].tees, newTee] },
-    };
-    saveCourses(updated);
-  }
-
-  function removeTee(courseName, teeId) {
-    const updated = {
-      ...courses,
-      [courseName]: { ...courses[courseName], tees: courses[courseName].tees.filter((t) => t.id !== teeId) },
-    };
-    saveCourses(updated);
-  }
-
-  return (
-    <div style={{ display: "grid", gap: 30 }}>
-      <div>
-        <SectionLabel>Event Format — {totalHoles} holes total</SectionLabel>
-        <div style={{ display: "grid", gap: 10 }}>
-          {rounds.map((r) => (
-            <div
-              key={r.id}
-              style={{
-                display: "flex",
-                gap: 12,
-                alignItems: "center",
-                background: "#fff",
-                border: `1px solid ${COLORS.line}`,
-                borderRadius: 3,
-                padding: "10px 14px",
-                flexWrap: "wrap",
-              }}
-            >
-              <input
-                value={r.label}
-                onChange={(e) => updateRoundField(r.id, "label", e.target.value)}
-                style={{ fontFamily: SERIF, fontWeight: 600, border: "none", background: "transparent", fontSize: 15, width: 130 }}
-              />
-              <select
-                value={r.format}
-                onChange={(e) => updateRoundField(r.id, "format", e.target.value)}
-                style={{ fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
-              >
-                <option value="bestball">Two-man best ball (match play)</option>
-                <option value="singles">Singles (match play)</option>
-              </select>
-              <select
-                value={r.holes}
-                onChange={(e) => updateRoundField(r.id, "holes", parseInt(e.target.value, 10))}
-                style={{ fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
-              >
-                <option value={9}>9 holes</option>
-                <option value={18}>18 holes</option>
-              </select>
-              <select
-                value={r.course}
-                onChange={(e) => updateRoundField(r.id, "course", e.target.value)}
-                style={{ fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
-              >
-                {Object.keys(courses).map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 10 }}>
-          Each round is tied to a course. The specific tee each match plays is set per-match in
-          the Pairings tab — matches in the same round can play different tees.
-        </div>
-      </div>
-
-      <div>
-        <SectionLabel>Courses & Tees</SectionLabel>
-        <div style={{ display: "grid", gap: 18 }}>
-          {Object.entries(courses).map(([courseName, course]) => (
-            <div key={courseName} style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
-              <div style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, marginBottom: 10 }}>{courseName}</div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {course.tees.map((t) => (
-                  <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    <input
-                      value={t.name}
-                      onChange={(e) => updateTee(courseName, t.id, "name", e.target.value)}
-                      placeholder="Tee name"
-                      style={{ width: 80, fontFamily: SERIF, fontSize: 14, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "5px 8px" }}
-                    />
-                    <LabeledNumber label="Rating" value={t.rating} step={0.1} onChange={(v) => updateTee(courseName, t.id, "rating", v)} />
-                    <LabeledNumber label="Slope" value={t.slope} step={1} onChange={(v) => updateTee(courseName, t.id, "slope", v)} />
-                    <LabeledNumber label="Par" value={t.par} step={1} onChange={(v) => updateTee(courseName, t.id, "par", v)} />
-                    <button
-                      onClick={() => removeTee(courseName, t.id)}
-                      style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
-                    >
-                      remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => addTee(courseName)}
-                  style={{
-                    fontFamily: MONO,
-                    fontSize: 12,
-                    padding: "8px",
-                    background: "transparent",
-                    border: `1px dashed ${COLORS.fairway}`,
-                    color: COLORS.fairway,
-                    cursor: "pointer",
-                    borderRadius: 3,
-                    width: "fit-content",
-                  }}
-                >
-                  + add tee
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 10 }}>
-          Course handicap = Index × (Slope / 113) + (Rating − Par), computed live per match using
-          whichever tee that match selected.
-        </div>
-      </div>
-
-      <div>
-        <SectionLabel>Roster & Handicap Index</SectionLabel>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 12 }}>
-          Edit a player's index here any time before or during the event — every course
-          handicap, stroke allowance, and live match result recalculates from this number
-          automatically, no redeploy needed.
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-          {[
-            { label: "Booth", color: COLORS.fairway, list: boothPlayers },
-            { label: "Fish", color: COLORS.flag, list: fishPlayers },
-          ].map(({ label, color, list }) => (
-            <div key={label}>
-              <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.1em", marginBottom: 8, color }}>
-                TEAM {label.toUpperCase()}
-              </div>
-              <div style={{ display: "grid", gap: 6 }}>
-                {list.map((p) => (
-                  <div
-                    key={p.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      background: "#fff",
-                      border: `1px solid ${COLORS.line}`,
-                      borderRadius: 3,
-                      padding: "6px 10px",
-                      fontFamily: MONO,
-                      fontSize: 12,
-                    }}
-                  >
-                    <button
-                      onClick={() => setSelectedPlayer(p)}
-                      style={{
-                        fontFamily: SERIF,
-                        fontSize: 14,
-                        background: "transparent",
-                        border: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        color: COLORS.ink,
-                        textDecoration: "underline",
-                        textDecorationColor: COLORS.line,
-                      }}
-                    >
-                      {p.name}
-                    </button>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ color: "#8a8470" }}>index</span>
-                      <input
-                        type="number"
-                        step={0.1}
-                        value={p.index}
-                        onChange={(e) => updatePlayerIndex(p.id, e.target.value)}
-                        style={{
-                          width: 56,
-                          fontFamily: MONO,
-                          fontSize: 13,
-                          border: `1px solid ${COLORS.line}`,
-                          borderRadius: 3,
-                          padding: "4px 6px",
-                          textAlign: "center",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        {alternates.length > 0 && (
-          <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 12 }}>
-            Alternate: {alternates.map((a) => a.name).join(", ")}
-          </div>
-        )}
-      </div>
-      {selectedPlayer && <PlayerStatsModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />}
-    </div>
-  );
-}
-
-function LabeledNumber({ label, value, step, onChange }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>{label}</span>
-      <input
-        type="number"
-        step={step}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ width: 60, fontFamily: MONO, fontSize: 13, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "5px 6px" }}
-      />
-    </div>
-  );
-}
+                {formatOdds(odds.side1)} · {myMatch.side2.map((p) =>
