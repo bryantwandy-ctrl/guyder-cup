@@ -755,6 +755,9 @@ export default function GolfTracker() {
           </button>
         </div>
       </div>
+      );
+  }
+  
   return (
     <>
       <BrandFontLoader />
