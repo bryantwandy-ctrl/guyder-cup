@@ -670,7 +670,7 @@ export default function GolfTracker() {
 
   if (true && !takeoverDismissed) {
     const winningTeam = totalPoints.a > totalPoints.b ? "Booth" : totalPoints.b > totalPoints.a ? "Fish" : null;
-    const winColor = winningTeam === "Booth" ? COLORS.fairway : COLORS.flag;
+    const winColor = COLORS.navy;
     return (
       <div
         style={{
@@ -698,7 +698,14 @@ export default function GolfTracker() {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            opacity: 0.55,
+            opacity: 0.85,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `linear-gradient(180deg, rgba(0,25,58,0.35) 0%, rgba(0,25,58,0.55) 100%)`,
           }}
         />
         <div style={{ position: "relative", zIndex: 1 }}>
@@ -748,9 +755,6 @@ export default function GolfTracker() {
           </button>
         </div>
       </div>
-    );
-  }
-
   return (
     <>
       <BrandFontLoader />
