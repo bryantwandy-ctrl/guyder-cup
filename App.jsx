@@ -92,21 +92,21 @@ const defaultPlayers = [
 const alternates = [{ id: 99, name: "Aaron Jackson (17th man)" }];
 
 const playerHistory = {
-  1: { fullName: "John Booth", notes: "Lifetime Member", overall: { w: 1, l: 3, winPct: 0.25 }, captain: null, matchRecord: { w: 2, l: 10, as: 1, points: 2.5, matches: 13 } },
+  1: { fullName: "John Booth", notes: "Member since 2022", overall: { w: 1, l: 3, winPct: 0.25 }, captain: null, matchRecord: { w: 2, l: 10, as: 1, points: 2.5, matches: 13 } },
   2: { fullName: "Clinton Mitchell", notes: "Founding 8, Captain: 2020", overall: { w: 4, l: 4, winPct: 0.5 }, captain: null, matchRecord: { w: 9, l: 4, as: 0, points: 9, matches: 13 } },
-  3: { fullName: "Dan Niemeyer", notes: "Lifetime Member", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
+  3: { fullName: "Dan Niemeyer", notes: "Member since 2022", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
   4: { fullName: "Matt Ramsbottom", notes: "Founding 8, Captain: 2019, BOD", overall: { w: 5, l: 3, winPct: 0.625 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 9, l: 4, as: 0, points: 9, matches: 13 } },
- 5: { fullName: "Mario Scrimenti", notes: "Lifetime Member, Captain: 2021 & 2025 (Rio)", inferred: true, overall: { w: 2, l: 5, winPct: 0.2857 }, captain: { w: 2, l: 1, winPct: 0.6667 }, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
+ 5: { fullName: "Mario Scrimenti", notes: "Member since 2018, Captain: 2021 & 2025 (Rio)", inferred: true, overall: { w: 2, l: 5, winPct: 0.2857 }, captain: { w: 2, l: 1, winPct: 0.6667 }, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
   6: { fullName: "Andy Bryant", notes: "Founding 8, Captain: 2019 & 2023 (AB)", inferred: true, overall: { w: 3, l: 5, winPct: 0.375 }, captain: { w: 0, l: 2, winPct: 0 }, matchRecord: { w: 5, l: 8, as: 0, points: 5, matches: 13 } },
-  7: { fullName: "Bobby Hogan", notes: "Lifetime Member", overall: { w: 3, l: 4, winPct: 0.4286 }, captain: null, matchRecord: { w: 7, l: 4, as: 2, points: 8, matches: 13 } },
+  7: { fullName: "Bobby Hogan", notes: "Member since 2018", overall: { w: 3, l: 4, winPct: 0.4286 }, captain: null, matchRecord: { w: 7, l: 4, as: 2, points: 8, matches: 13 } },
   8: { fullName: "John Martin IV", notes: "Founding 8, Captain: 2020 (inferred match - J4)", inferred: true, overall: { w: 5, l: 3, winPct: 0.625 }, captain: null, matchRecord: { w: 4, l: 9, as: 0, points: 4, matches: 13 } },
-  9: { fullName: "Tyler Fishbune", notes: "Lifetime Member", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 6, l: 7, as: 0, points: 6, matches: 13 } },
+  9: { fullName: "Tyler Fishbune", notes: "Member since 2022", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 6, l: 7, as: 0, points: 6, matches: 13 } },
   10: { fullName: "Daniel Jackson", notes: "Founding 8, Captain: 2018 (inferred match - Danny)", inferred: true, overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 8, l: 3, as: 2, points: 9, matches: 13 } },
-  11: { fullName: "Richard Rames", notes: "Lifetime Member", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: null, matchRecord: { w: 7, l: 3, as: 0, points: 7, matches: 10 } },
+  11: { fullName: "Richard Rames", notes: "Member since 2018", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: null, matchRecord: { w: 7, l: 3, as: 0, points: 7, matches: 10 } },
   12: { fullName: "Jacob Bearman", notes: "Founding 8, Captain: 2017 & 2022, BOD", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 6, l: 6, as: 1, points: 6.5, matches: 13 } },
-  13: { fullName: "Chris Littel", notes: "", overall: { w: 0, l: 1, winPct: 0 }, captain: null, matchRecord: { w: 1, l: 2, as: 0, points: 1, matches: 3 } },
+  13: { fullName: "Chris Littel", notes: "Member since 2025", overall: { w: 0, l: 1, winPct: 0 }, captain: null, matchRecord: { w: 1, l: 2, as: 0, points: 1, matches: 3 } },
   14: { fullName: "Ben Larson", notes: "Founding 8, Captain: 2018 & 2022, BOD", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 2, l: 0, winPct: 1 }, matchRecord: { w: 2, l: 10, as: 1, points: 2.5, matches: 13 } },
-  15: { fullName: "Doug Gallow", notes: "Lifetime Member, Captain: 2023", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: { w: 1, l: 0, winPct: 1 }, matchRecord: { w: 9, l: 3, as: 1, points: 9.5, matches: 13 } },
+  15: { fullName: "Doug Gallow", notes: "Member since 2019, Captain: 2023, BOD", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: { w: 1, l: 0, winPct: 1 }, matchRecord: { w: 9, l: 3, as: 1, points: 9.5, matches: 13 } },
   16: { fullName: "Jon Meyer", notes: "Founding 8, Captain: 2017, BOD", overall: { w: 1, l: 7, winPct: 0.125 }, captain: { w: 0, l: 2, winPct: 0 }, matchRecord: { w: 2, l: 7, as: 4, points: 4, matches: 13 } },
 };
 
@@ -163,7 +163,7 @@ function strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx) {
 
 const defaultRounds = [
   { id: 1, label: "AM Best Ball", format: "bestball", holes: 18, course: "Keep" },
-  { id: 2, label: "PM Best Ball", format: "bestball", holes: 18, course: "Highlands" },
+  { id: 2, label: "PM Best Ball", format: "bestball", holes: 18, course: "Keep" },
   { id: 3, label: "Singles", format: "singles", holes: 18, course: "Keep" },
 ];
 
@@ -377,6 +377,9 @@ function coursesKey() {
 function playersKey() {
   return `${TOURNAMENT_ID}:players`;
 }
+function roundsKey() {
+  return `${TOURNAMENT_ID}:rounds`;
+}
 
 async function loadJSON(key, fallback) {
   try {
@@ -552,15 +555,17 @@ export default function GolfTracker() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const loadedRounds = await loadJSON(roundsKey(), defaultRounds);
       const nextScores = {};
       const nextPairings = {};
-      for (const r of rounds) {
+      for (const r of loadedRounds) {
         nextScores[r.id] = await loadJSON(scoresKey(r.id), emptyScores(r.holes));
         nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings());
       }
       const loadedCourses = await loadJSON(coursesKey(), defaultCourses);
       const loadedPlayers = await loadJSON(playersKey(), defaultPlayers);
       if (!cancelled) {
+        setRounds(loadedRounds);
         setScoresByRound(nextScores);
         setPairingsByRound(nextPairings);
         setCourses(loadedCourses);
@@ -578,14 +583,16 @@ export default function GolfTracker() {
     if (!loaded) return;
     const interval = setInterval(async () => {
       setSyncing(true);
+      const loadedRounds = await loadJSON(roundsKey(), defaultRounds);
       const nextScores = {};
       const nextPairings = {};
-      for (const r of rounds) {
+      for (const r of loadedRounds) {
         nextScores[r.id] = await loadJSON(scoresKey(r.id), emptyScores(r.holes));
         nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings());
       }
       const loadedCourses = await loadJSON(coursesKey(), defaultCourses);
       const loadedPlayers = await loadJSON(playersKey(), defaultPlayers);
+      setRounds(loadedRounds);
       setScoresByRound(nextScores);
       setPairingsByRound(nextPairings);
       setCourses(loadedCourses);
@@ -593,7 +600,7 @@ export default function GolfTracker() {
       setSyncing(false);
     }, POLL_MS);
     return () => clearInterval(interval);
-  }, [loaded, rounds]);
+  }, [loaded]);
 
   const totalPoints = useMemo(() => {
     let a = 0,
@@ -646,6 +653,14 @@ export default function GolfTracker() {
   function saveCourses(updated) {
     setCourses(updated);
     saveJSON(coursesKey(), updated);
+  }
+
+  function saveRounds(updated) {
+    setRounds(updated);
+    saveJSON(roundsKey(), updated).then((res) => {
+      if (!res.ok) setSaveError(`Couldn't save round settings: ${res.error}`);
+      else setSaveError(null);
+    });
   }
 
   function savePlayers(updated) {
@@ -906,7 +921,7 @@ export default function GolfTracker() {
             players={players}
             savePlayers={savePlayers}
             rounds={rounds}
-            setRounds={setRounds}
+            setRounds={saveRounds}
             alternates={alternates}
             courses={courses}
             saveCourses={saveCourses}
@@ -1655,7 +1670,8 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   function updateRoundField(roundId, field, value) {
-    setRounds((prev) => prev.map((r) => (r.id === roundId ? { ...r, [field]: value } : r)));
+    const updated = rounds.map((r) => (r.id === roundId ? { ...r, [field]: value } : r));
+    setRounds(updated);
   }
 
   function updatePlayerIndex(playerId, value) {
