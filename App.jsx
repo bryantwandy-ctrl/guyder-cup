@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
 // ---------- Design tokens ----------
@@ -15,48 +15,68 @@ const COLORS = {
 const SERIF = "'Source Serif Pro', Georgia, 'Times New Roman', serif";
 const MONO = "'IBM Plex Mono', 'Courier New', monospace";
 
-const TOURNAMENT_ID = "guyder-cup-2026"; // change per event to keep tournaments separate
+const TOURNAMENT_ID = "guyder-cup-2026"; // bump this each year to keep scores separate
 const POLL_MS = 5000;
 
 const TEAM_BOOTH = "Booth";
 const TEAM_FISH = "Fish";
 
-// ---------- Roster (from McLemore Civil War 2026 sheet) ----------
-// hcpHighlands / hcpKeep are already-converted course handicaps, not index.
+// ---------- Roster ----------
+// index = USGA/WHS Handicap Index. Course handicap is computed live per the
+// tee each match actually plays, using: Index x (Slope/113) + (Rating - Par)
 const defaultPlayers = [
-  { id: 1, name: "Booth", team: TEAM_BOOTH, hcpHighlands: 21, hcpKeep: 21 },
-  { id: 2, name: "Clinton", team: TEAM_BOOTH, hcpHighlands: 6, hcpKeep: 6 },
-  { id: 3, name: "Niemeyer", team: TEAM_BOOTH, hcpHighlands: 10, hcpKeep: 10 },
-  { id: 4, name: "Rams", team: TEAM_BOOTH, hcpHighlands: 14, hcpKeep: 14 },
-  { id: 5, name: "Rio", team: TEAM_BOOTH, hcpHighlands: 15, hcpKeep: 15 },
-  { id: 6, name: "AB", team: TEAM_BOOTH, hcpHighlands: 22, hcpKeep: 22 },
-  { id: 7, name: "Bobby", team: TEAM_BOOTH, hcpHighlands: 25, hcpKeep: 25 },
-  { id: 8, name: "J4", team: TEAM_BOOTH, hcpHighlands: 12, hcpKeep: 12 },
-  { id: 9, name: "Fish", team: TEAM_FISH, hcpHighlands: 4, hcpKeep: 4 },
-  { id: 10, name: "Danny", team: TEAM_FISH, hcpHighlands: 9, hcpKeep: 9 },
-  { id: 11, name: "Rames", team: TEAM_FISH, hcpHighlands: 11, hcpKeep: 11 },
-  { id: 12, name: "Bearman", team: TEAM_FISH, hcpHighlands: 12, hcpKeep: 12 },
-  { id: 13, name: "Littel", team: TEAM_FISH, hcpHighlands: 19, hcpKeep: 19 },
-  { id: 14, name: "Larson", team: TEAM_FISH, hcpHighlands: 11, hcpKeep: 11 },
-  { id: 15, name: "Doug", team: TEAM_FISH, hcpHighlands: 29, hcpKeep: 29 },
-  { id: 16, name: "Meyer", team: TEAM_FISH, hcpHighlands: 26, hcpKeep: 26 },
+  { id: 1, name: "Booth", team: TEAM_BOOTH, index: 17.2 },
+  { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 4.6 },
+  { id: 3, name: "Niemeyer", team: TEAM_BOOTH, index: 8.1 },
+  { id: 4, name: "Rams", team: TEAM_BOOTH, index: 11.6 },
+  { id: 5, name: "Rio", team: TEAM_BOOTH, index: 11.8 },
+  { id: 6, name: "AB", team: TEAM_BOOTH, index: 17.8 },
+  { id: 7, name: "Bobby", team: TEAM_BOOTH, index: 20.5 },
+  { id: 8, name: "J4", team: TEAM_BOOTH, index: 9.6 },
+  { id: 9, name: "Fish", team: TEAM_FISH, index: 3.2 },
+  { id: 10, name: "Danny", team: TEAM_FISH, index: 7.5 },
+  { id: 11, name: "Rames", team: TEAM_FISH, index: 8.6 },
+  { id: 12, name: "Bearman", team: TEAM_FISH, index: 9.4 },
+  { id: 13, name: "Littel", team: TEAM_FISH, index: 15.6 },
+  { id: 14, name: "Larson", team: TEAM_FISH, index: 8.4 },
+  { id: 15, name: "Doug", team: TEAM_FISH, index: 23.6 },
+  { id: 16, name: "Meyer", team: TEAM_FISH, index: 20.8 },
 ];
 
-// Not in the 16 - available if someone can't play
 const alternates = [{ id: 99, name: "Aaron Jackson (17th man)" }];
 
-// Generic stroke index 1-18 (placeholder until real hole-by-hole stroke index is loaded)
+// ---------- Courses & tees ----------
+// Each course has one or more tees, each with its own rating/slope/par.
+// Matches choose a specific tee, which determines everyone's course handicap.
+const defaultCourses = {
+  Highlands: {
+    tees: [{ id: "h-ii", name: "II", rating: 71.3, slope: 138, par: 71 }],
+  },
+  Keep: {
+    tees: [{ id: "k-blue", name: "Blue", rating: 73.7, slope: 140, par: 72 }],
+  },
+};
+
+// Generic stroke index 1-18 (placeholder until real hole-by-hole stroke index per tee is loaded)
 const strokeIndex = Array.from({ length: 18 }, (_, i) => i + 1);
 
-function courseHcp(player, course) {
-  return course === "Highlands" ? player.hcpHighlands : player.hcpKeep;
+function findTee(courses, courseName, teeId) {
+  const course = courses[courseName];
+  if (!course) return null;
+  return course.tees.find((t) => t.id === teeId) || null;
 }
 
-function strokesReceived(player, course, holeIdx) {
-  const hcp = courseHcp(player, course);
+function courseHandicap(index, tee) {
+  if (!tee) return null;
+  return Math.round(index * (tee.slope / 113) + (tee.rating - tee.par));
+}
+
+function strokesReceived(player, tee, holeIdx) {
+  const hcp = courseHandicap(player.index, tee);
+  if (hcp == null) return 0;
   const si = strokeIndex[holeIdx];
   const base = Math.floor(hcp / 18);
-  const extra = si <= hcp % 18 ? 1 : 0;
+  const extra = si <= ((hcp % 18) + 18) % 18 ? 1 : 0;
   return base + extra;
 }
 
@@ -74,60 +94,57 @@ function matchSize(format) {
   return format === "bestball" ? 2 : 1;
 }
 
-// pairings shape: { boothGroups: { playerId: matchNumber|null }, fishGroups: { playerId: matchNumber|null } }
-function emptyPairings(players) {
-  const boothGroups = {};
-  const fishGroups = {};
-  players.forEach((p) => {
-    if (p.team === TEAM_BOOTH) boothGroups[p.id] = null;
-    else fishGroups[p.id] = null;
-  });
-  return { boothGroups, fishGroups };
+// pairings shape: { matches: [{ id, side1: [playerId,...], side2: [playerId,...], teeId }] }
+function emptyPairings() {
+  return { matches: [] };
 }
 
 function buildMatchesFromPairings(pairings, players, format) {
-  if (!pairings) return [];
-  const size = matchSize(format);
-  const numMatches = players.length / 2 / size;
-  const matches = [];
-  for (let n = 1; n <= numMatches; n++) {
-    const side1 = players.filter(
-      (p) => p.team === TEAM_BOOTH && pairings.boothGroups[p.id] === n
-    );
-    const side2 = players.filter(
-      (p) => p.team === TEAM_FISH && pairings.fishGroups[p.id] === n
-    );
-    if (side1.length === size && side2.length === size) {
-      matches.push({ id: `m-${n}`, matchNumber: n, side1, side2 });
-    }
-  }
-  return matches;
+  if (!pairings || !pairings.matches) return [];
+  const byId = {};
+  players.forEach((p) => (byId[p.id] = p));
+  return pairings.matches.map((m) => ({
+    id: m.id,
+    teeId: m.teeId || null,
+    side1: m.side1.map((id) => byId[id]).filter(Boolean),
+    side2: m.side2.map((id) => byId[id]).filter(Boolean),
+  }));
 }
 
 function pairingsComplete(pairings, players, format) {
   const size = matchSize(format);
   const numMatches = players.length / 2 / size;
-  return buildMatchesFromPairings(pairings, players, format).length === numMatches;
+  return (pairings?.matches?.length || 0) === numMatches;
 }
 
-function netBestBallScore(players, course, scores, holeIdx) {
+function unassignedPlayers(pairings, players, team) {
+  const used = new Set();
+  (pairings?.matches || []).forEach((m) => {
+    m.side1.forEach((id) => used.add(id));
+    m.side2.forEach((id) => used.add(id));
+  });
+  return players.filter((p) => p.team === team && !used.has(p.id));
+}
+
+function netBestBallScore(players, tee, scores, holeIdx) {
   const nets = players.map((p) => {
     const gross = scores?.[holeIdx]?.[p.id];
     if (gross == null) return null;
-    return gross - strokesReceived(p, course, holeIdx);
+    return gross - strokesReceived(p, tee, holeIdx);
   });
   if (nets.some((n) => n == null)) return null;
   return Math.min(...nets);
 }
 
-function netSinglesScore(player, course, scores, holeIdx) {
+function netSinglesScore(player, tee, scores, holeIdx) {
   const gross = scores?.[holeIdx]?.[player.id];
   if (gross == null) return null;
-  return gross - strokesReceived(player, course, holeIdx);
+  return gross - strokesReceived(player, tee, holeIdx);
 }
 
-function matchPlayState(match, round, scores) {
-  const { format, holes, course } = round;
+function matchPlayState(match, round, scores, courses) {
+  const { format, holes } = round;
+  const tee = findTee(courses, round.course, match.teeId);
   let diff = 0;
   let holesPlayed = 0;
   let decided = false;
@@ -136,11 +153,11 @@ function matchPlayState(match, round, scores) {
   for (let h = 0; h < holes; h++) {
     let s1, s2;
     if (format === "bestball") {
-      s1 = netBestBallScore(match.side1, course, scores, h);
-      s2 = netBestBallScore(match.side2, course, scores, h);
+      s1 = netBestBallScore(match.side1, tee, scores, h);
+      s2 = netBestBallScore(match.side2, tee, scores, h);
     } else {
-      s1 = netSinglesScore(match.side1[0], course, scores, h);
-      s2 = netSinglesScore(match.side2[0], course, scores, h);
+      s1 = netSinglesScore(match.side1[0], tee, scores, h);
+      s2 = netSinglesScore(match.side2[0], tee, scores, h);
     }
     if (s1 == null || s2 == null) break;
     holesPlayed = h + 1;
@@ -179,17 +196,19 @@ function matchPlayState(match, round, scores) {
     points1,
     points2,
     leader: diff > 0 ? "side1" : diff < 0 ? "side2" : null,
+    tee,
   };
 }
 
 // ---------- Shared storage helpers (Supabase-backed) ----------
-// Uses a single key/value table `tournament_kv` with columns: key (text, primary key), value (jsonb).
-// See README.md for the one-time SQL setup.
 function scoresKey(roundId) {
   return `${TOURNAMENT_ID}:scores:round-${roundId}`;
 }
 function pairingsKey(roundId) {
   return `${TOURNAMENT_ID}:pairings:round-${roundId}`;
+}
+function coursesKey() {
+  return `${TOURNAMENT_ID}:courses`;
 }
 
 async function loadJSON(key, fallback) {
@@ -291,6 +310,7 @@ function LiveDot({ syncing }) {
 export default function GolfTracker() {
   const [players] = useState(defaultPlayers);
   const [rounds, setRounds] = useState(defaultRounds);
+  const [courses, setCourses] = useState(defaultCourses);
   const [activeRound, setActiveRound] = useState(0);
   const [tab, setTab] = useState("leaderboard");
   const [myMatchId, setMyMatchId] = useState(null);
@@ -301,7 +321,7 @@ export default function GolfTracker() {
   });
   const [pairingsByRound, setPairingsByRound] = useState(() => {
     const init = {};
-    defaultRounds.forEach((r) => (init[r.id] = emptyPairings(players)));
+    defaultRounds.forEach((r) => (init[r.id] = emptyPairings()));
     return init;
   });
   const [loaded, setLoaded] = useState(false);
@@ -323,11 +343,13 @@ export default function GolfTracker() {
       const nextPairings = {};
       for (const r of rounds) {
         nextScores[r.id] = await loadJSON(scoresKey(r.id), emptyScores(r.holes));
-        nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings(players));
+        nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings());
       }
+      const loadedCourses = await loadJSON(coursesKey(), defaultCourses);
       if (!cancelled) {
         setScoresByRound(nextScores);
         setPairingsByRound(nextPairings);
+        setCourses(loadedCourses);
         setLoaded(true);
       }
     })();
@@ -346,31 +368,37 @@ export default function GolfTracker() {
       const nextPairings = {};
       for (const r of rounds) {
         nextScores[r.id] = await loadJSON(scoresKey(r.id), emptyScores(r.holes));
-        nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings(players));
+        nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings());
       }
+      const loadedCourses = await loadJSON(coursesKey(), defaultCourses);
       setScoresByRound(nextScores);
       setPairingsByRound(nextPairings);
+      setCourses(loadedCourses);
       setSyncing(false);
     }, POLL_MS);
     return () => clearInterval(interval);
-  }, [loaded, rounds, players]);
+  }, [loaded, rounds]);
 
   const totalPoints = useMemo(() => {
     let a = 0,
-      b = 0,
-      possible = 0;
+      b = 0;
     rounds.forEach((r) => {
       const matches = matchesByRound[r.id];
       const scores = scoresByRound[r.id] || emptyScores(r.holes);
       matches.forEach((match) => {
-        possible += 1;
-        const state = matchPlayState(match, r, scores);
+        const state = matchPlayState(match, r, scores, courses);
         a += state.points1;
         b += state.points2;
       });
     });
+    // possible points fixed by roster size/format, independent of pairings progress,
+    // so "first to" doesn't shift around before pairings are finished
+    const possible = rounds.reduce((sum, r) => {
+      const size = matchSize(r.format);
+      return sum + players.length / 2 / size;
+    }, 0);
     return { a, b, possible };
-  }, [rounds, matchesByRound, scoresByRound]);
+  }, [rounds, matchesByRound, scoresByRound, players, courses]);
 
   function updateScore(roundId, holeIdx, playerId, value) {
     setScoresByRound((prev) => {
@@ -383,18 +411,17 @@ export default function GolfTracker() {
     });
   }
 
-  function updatePairing(roundId, team, playerId, matchNumber) {
+  function savePairings(roundId, updated) {
     setPairingsByRound((prev) => {
-      const next = { ...prev };
-      const groupsKey = team === TEAM_BOOTH ? "boothGroups" : "fishGroups";
-      const updated = {
-        ...next[roundId],
-        [groupsKey]: { ...next[roundId][groupsKey], [playerId]: matchNumber },
-      };
-      next[roundId] = updated;
+      const next = { ...prev, [roundId]: updated };
       saveJSON(pairingsKey(roundId), updated);
       return next;
     });
+  }
+
+  function saveCourses(updated) {
+    setCourses(updated);
+    saveJSON(coursesKey(), updated);
   }
 
   const round = rounds[activeRound];
@@ -464,7 +491,7 @@ export default function GolfTracker() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 980, margin: "0 auto 24px", display: "flex", gap: 8 }}>
+      <div style={{ maxWidth: 980, margin: "0 auto 24px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         <TabButton active={tab === "leaderboard"} onClick={() => setTab("leaderboard")}>
           Leaderboard
         </TabButton>
@@ -481,7 +508,7 @@ export default function GolfTracker() {
 
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
         {tab === "leaderboard" && (
-          <Leaderboard rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} />
+          <Leaderboard rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} courses={courses} />
         )}
 
         {tab === "score" && (
@@ -495,6 +522,7 @@ export default function GolfTracker() {
             updateScore={updateScore}
             myMatchId={myMatchId}
             setMyMatchId={setMyMatchId}
+            courses={courses}
           />
         )}
 
@@ -506,12 +534,21 @@ export default function GolfTracker() {
             round={round}
             players={players}
             pairings={pairings}
-            updatePairing={updatePairing}
-            matches={matches}
+            savePairings={savePairings}
+            courses={courses}
           />
         )}
 
-        {tab === "setup" && <Setup players={players} rounds={rounds} setRounds={setRounds} alternates={alternates} />}
+        {tab === "setup" && (
+          <Setup
+            players={players}
+            rounds={rounds}
+            setRounds={setRounds}
+            alternates={alternates}
+            courses={courses}
+            saveCourses={saveCourses}
+          />
+        )}
       </div>
     </div>
   );
@@ -521,9 +558,7 @@ function Scoreline({ totalPoints, winNeeded }) {
   return (
     <div style={{ display: "flex", gap: 22, alignItems: "baseline" }}>
       <TeamScore label="Booth" value={totalPoints.a} color={COLORS.fairway} />
-      <div style={{ fontFamily: MONO, fontSize: 13, color: COLORS.tan }}>
-        first to {winNeeded}
-      </div>
+      <div style={{ fontFamily: MONO, fontSize: 13, color: COLORS.tan }}>first to {winNeeded}</div>
       <TeamScore label="Fish" value={totalPoints.b} color={COLORS.flag} />
     </div>
   );
@@ -548,7 +583,7 @@ function TeamScore({ label, value, color }) {
   );
 }
 
-function Leaderboard({ rounds, matchesByRound, scoresByRound }) {
+function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
   return (
     <div>
       <SectionLabel>Match Status by Round</SectionLabel>
@@ -569,6 +604,8 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound }) {
                   textTransform: "uppercase",
                   display: "flex",
                   justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 6,
                 }}
               >
                 <span>{r.label}</span>
@@ -584,7 +621,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound }) {
                   </div>
                 )}
                 {matches.map((m, idx) => {
-                  const state = matchPlayState(m, r, scores);
+                  const state = matchPlayState(m, r, scores, courses);
                   return (
                     <div
                       key={m.id}
@@ -613,8 +650,13 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound }) {
                           padding: "4px 8px",
                         }}
                       >
-                        {state.label}
-                        {state.holesPlayed > 0 && ` · thru ${state.holesPlayed}`}
+                        <div>
+                          {state.label}
+                          {state.holesPlayed > 0 && ` · thru ${state.holesPlayed}`}
+                        </div>
+                        {state.tee && (
+                          <div style={{ fontSize: 10, color: "#a39c87", marginTop: 2 }}>{state.tee.name} tees</div>
+                        )}
                       </div>
                       <div style={{ fontWeight: state.leader === "side2" ? 700 : 400 }}>
                         {m.side2.map((p) => p.name).join(" / ")}
@@ -631,13 +673,25 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound }) {
   );
 }
 
-function ScoreEntry({ rounds, activeRound, setActiveRound, round, matches, scores, updateScore, myMatchId, setMyMatchId }) {
+function ScoreEntry({
+  rounds,
+  activeRound,
+  setActiveRound,
+  round,
+  matches,
+  scores,
+  updateScore,
+  myMatchId,
+  setMyMatchId,
+  courses,
+}) {
   const [holeIdx, setHoleIdx] = useState(0);
   const myMatch = matches.find((m) => m.id === myMatchId);
+  const tee = myMatch ? findTee(courses, round.course, myMatch.teeId) : null;
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
         {rounds.map((r, i) => (
           <TabButton
             key={r.id}
@@ -668,12 +722,12 @@ function ScoreEntry({ rounds, activeRound, setActiveRound, round, matches, score
           The captains haven't set pairings for {round.label} yet. Check the Pairings tab.
         </div>
       ) : !myMatch ? (
-        <MatchPicker round={round} matches={matches} scores={scores} onPick={setMyMatchId} />
+        <MatchPicker round={round} matches={matches} scores={scores} onPick={setMyMatchId} courses={courses} />
       ) : (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
             <SectionLabel>
-              {round.label} ({round.course}) — Hole {holeIdx + 1} of {round.holes}
+              {round.label} ({round.course}{tee ? `, ${tee.name} tees` : ""}) — Hole {holeIdx + 1} of {round.holes}
             </SectionLabel>
             <button
               onClick={() => setMyMatchId(null)}
@@ -691,6 +745,13 @@ function ScoreEntry({ rounds, activeRound, setActiveRound, round, matches, score
               switch match
             </button>
           </div>
+
+          {!tee && (
+            <div style={{ fontFamily: MONO, fontSize: 12, color: COLORS.flag, marginBottom: 14 }}>
+              No tee set for this match yet — strokes can't be calculated until the captain picks a
+              tee in the Pairings tab.
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
             {Array.from({ length: round.holes }, (_, h) => (
@@ -715,10 +776,10 @@ function ScoreEntry({ rounds, activeRound, setActiveRound, round, matches, score
           </div>
 
           <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
-            <div style={{ display: "flex", gap: 24 }}>
-              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} />
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} />
               <div style={{ width: 1, background: COLORS.line, alignSelf: "stretch" }} />
-              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} />
+              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} />
             </div>
           </div>
         </div>
@@ -727,13 +788,13 @@ function ScoreEntry({ rounds, activeRound, setActiveRound, round, matches, score
   );
 }
 
-function MatchPicker({ round, matches, scores, onPick }) {
+function MatchPicker({ round, matches, scores, onPick, courses }) {
   return (
     <div>
       <SectionLabel>Which match are you scoring? — {round.label}</SectionLabel>
       <div style={{ display: "grid", gap: 10 }}>
         {matches.map((m) => {
-          const state = matchPlayState(m, round, scores);
+          const state = matchPlayState(m, round, scores, courses);
           return (
             <button
               key={m.id}
@@ -755,7 +816,8 @@ function MatchPicker({ round, matches, scores, onPick }) {
             >
               <div style={{ textAlign: "right" }}>{m.side1.map((p) => p.name).join(" / ")}</div>
               <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", minWidth: 100, textAlign: "center" }}>
-                {state.holesPlayed > 0 ? `thru ${state.holesPlayed}` : "not started"}
+                <div>{state.holesPlayed > 0 ? `thru ${state.holesPlayed}` : "not started"}</div>
+                {state.tee && <div style={{ fontSize: 10 }}>{state.tee.name} tees</div>}
               </div>
               <div>{m.side2.map((p) => p.name).join(" / ")}</div>
             </button>
@@ -769,18 +831,20 @@ function MatchPicker({ round, matches, scores, onPick }) {
   );
 }
 
-function MatchSidePlayers({ players, holeIdx, scores, round, updateScore }) {
+function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee }) {
   return (
-    <div style={{ flex: 1, display: "grid", gap: 8 }}>
+    <div style={{ flex: 1, minWidth: 200, display: "grid", gap: 8 }}>
       {players.map((p) => {
-        const strokes = strokesReceived(p, round.course, holeIdx);
+        const strokes = tee ? strokesReceived(p, tee, holeIdx) : 0;
+        const hcp = tee ? courseHandicap(p.index, tee) : null;
         const gross = scores?.[holeIdx]?.[p.id];
         return (
           <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <div>
               <div style={{ fontWeight: 600 }}>{p.name}</div>
               <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
-                {round.course} hcp {courseHcp(p, round.course)}
+                index {p.index}
+                {hcp != null ? ` · course hcp ${hcp}` : ""}
                 {strokes > 0 ? ` · +${strokes} this hole` : ""}
               </div>
             </div>
@@ -808,16 +872,68 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore }) {
   );
 }
 
-function Pairings({ rounds, activeRound, setActiveRound, round, players, pairings, updatePairing, matches }) {
+// ---------- Pairings: click-to-build match list with per-match tee ----------
+function Pairings({ rounds, activeRound, setActiveRound, round, players, pairings, savePairings, courses }) {
   const size = matchSize(round.format);
   const numMatches = players.length / 2 / size;
-  const boothPlayers = players.filter((p) => p.team === TEAM_BOOTH);
-  const fishPlayers = players.filter((p) => p.team === TEAM_FISH);
   const complete = pairingsComplete(pairings, players, round.format);
+  const matches = buildMatchesFromPairings(pairings, players, round.format);
+  const availableTees = courses[round.course]?.tees || [];
+
+  const [selBooth, setSelBooth] = useState([]);
+  const [selFish, setSelFish] = useState([]);
+  const [newTeeId, setNewTeeId] = useState(availableTees[0]?.id || "");
+
+  useEffect(() => {
+    setSelBooth([]);
+    setSelFish([]);
+    setNewTeeId(availableTees[0]?.id || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round.id]);
+
+  const unBooth = unassignedPlayers(pairings, players, TEAM_BOOTH);
+  const unFish = unassignedPlayers(pairings, players, TEAM_FISH);
+
+  function toggleSelect(list, setList, playerId) {
+    setList((prev) => {
+      if (prev.includes(playerId)) return prev.filter((id) => id !== playerId);
+      if (prev.length >= size) return prev; // already full
+      return [...prev, playerId];
+    });
+  }
+
+  function addMatch() {
+    if (selBooth.length !== size || selFish.length !== size) return;
+    const newMatch = {
+      id: `m-${Date.now()}`,
+      side1: selBooth,
+      side2: selFish,
+      teeId: newTeeId || null,
+    };
+    const updated = { matches: [...(pairings?.matches || []), newMatch] };
+    savePairings(round.id, updated);
+    setSelBooth([]);
+    setSelFish([]);
+  }
+
+  function removeMatch(matchId) {
+    const updated = { matches: (pairings?.matches || []).filter((m) => m.id !== matchId) };
+    savePairings(round.id, updated);
+  }
+
+  function changeTee(matchId, teeId) {
+    const updated = {
+      matches: (pairings?.matches || []).map((m) => (m.id === matchId ? { ...m, teeId } : m)),
+    };
+    savePairings(round.id, updated);
+  }
+
+  const byId = {};
+  players.forEach((p) => (byId[p.id] = p));
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
         {rounds.map((r, i) => (
           <TabButton key={r.id} active={i === activeRound} onClick={() => setActiveRound(i)}>
             {r.label}
@@ -827,83 +943,136 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
 
       <SectionLabel>
         {round.label} — {round.format === "bestball" ? "two-man teams" : "singles"} ({round.course}) ·{" "}
-        {complete ? `${matches.length} matches set` : "incomplete"}
+        {complete ? `all ${numMatches} matches set` : `${matches.length} of ${numMatches} set`}
       </SectionLabel>
 
-      <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 16 }}>
-        Captain: assign each player a match number. Match 1 plays match 1, etc. — players with the
-        same number on each team face off.
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        <PairingColumn
-          teamLabel="Booth"
-          color={COLORS.fairway}
-          teamPlayers={boothPlayers}
-          assignments={pairings.boothGroups}
-          numMatches={numMatches}
-          onChange={(playerId, val) => updatePairing(round.id, TEAM_BOOTH, playerId, val)}
-        />
-        <PairingColumn
-          teamLabel="Fish"
-          color={COLORS.flag}
-          teamPlayers={fishPlayers}
-          assignments={pairings.fishGroups}
-          numMatches={numMatches}
-          onChange={(playerId, val) => updatePairing(round.id, TEAM_FISH, playerId, val)}
-        />
-      </div>
-    </div>
-  );
-}
-
-function PairingColumn({ teamLabel, color, teamPlayers, assignments, numMatches, onChange }) {
-  return (
-    <div>
-      <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.1em", marginBottom: 8, color }}>
-        TEAM {teamLabel.toUpperCase()}
-      </div>
-      <div style={{ display: "grid", gap: 6 }}>
-        {teamPlayers.map((p) => (
-          <div
-            key={p.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              background: "#fff",
-              border: `1px solid ${COLORS.line}`,
-              borderRadius: 3,
-              padding: "8px 10px",
-            }}
-          >
-            <span style={{ fontFamily: SERIF, fontSize: 14 }}>{p.name}</span>
-            <select
-              value={assignments[p.id] ?? ""}
-              onChange={(e) => onChange(p.id, e.target.value === "" ? null : parseInt(e.target.value, 10))}
+      {/* Existing matches */}
+      {matches.length > 0 && (
+        <div style={{ display: "grid", gap: 10, marginBottom: 22 }}>
+          {matches.map((m) => (
+            <div
+              key={m.id}
               style={{
-                fontFamily: MONO,
-                fontSize: 13,
-                padding: "5px 8px",
+                display: "grid",
+                gridTemplateColumns: "1fr auto auto",
+                alignItems: "center",
+                gap: 10,
+                background: "#fff",
                 border: `1px solid ${COLORS.line}`,
                 borderRadius: 3,
+                padding: "10px 14px",
               }}
             >
-              <option value="">—</option>
-              {Array.from({ length: numMatches }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>
-                  Match {n}
+              <div style={{ fontFamily: SERIF, fontSize: 14 }}>
+                {m.side1.map((p) => p.name).join(" / ")}
+                <span style={{ color: "#a39c87" }}> vs </span>
+                {m.side2.map((p) => p.name).join(" / ")}
+              </div>
+              <select
+                value={m.teeId || ""}
+                onChange={(e) => changeTee(m.id, e.target.value)}
+                style={{ fontFamily: MONO, fontSize: 12, padding: "5px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
+              >
+                <option value="">no tee set</option>
+                {availableTees.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} tees
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => removeMatch(m.id)}
+                style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
+              >
+                remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Builder for a new match */}
+      {!complete && (
+        <div style={{ background: "#fff", border: `1px dashed ${COLORS.fairway}`, borderRadius: 3, padding: "16px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 12 }}>
+            Tap {size === 2 ? "two" : "one"} player{size === 2 ? "s" : ""} from each team to build the next match.
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 14 }}>
+            <PlayerPicker color={COLORS.fairway} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} />
+            <PlayerPicker color={COLORS.flag} list={unFish} selected={selFish} onToggle={(id) => toggleSelect(selFish, setSelFish, id)} />
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <select
+              value={newTeeId}
+              onChange={(e) => setNewTeeId(e.target.value)}
+              style={{ fontFamily: MONO, fontSize: 13, padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
+            >
+              <option value="">no tee set</option>
+              {availableTees.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} tees
                 </option>
               ))}
             </select>
+            <button
+              onClick={addMatch}
+              disabled={selBooth.length !== size || selFish.length !== size}
+              style={{
+                fontFamily: MONO,
+                fontSize: 13,
+                padding: "10px 16px",
+                background: selBooth.length === size && selFish.length === size ? COLORS.fairway : "#ddd6c4",
+                color: selBooth.length === size && selFish.length === size ? COLORS.cream : "#a39c87",
+                border: "none",
+                borderRadius: 3,
+                cursor: selBooth.length === size && selFish.length === size ? "pointer" : "default",
+              }}
+            >
+              + add match
+            </button>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Setup({ players, rounds, setRounds, alternates }) {
+function PlayerPicker({ color, list, selected, onToggle }) {
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      {list.map((p) => {
+        const isSel = selected.includes(p.id);
+        return (
+          <button
+            key={p.id}
+            onClick={() => onToggle(p.id)}
+            style={{
+              textAlign: "left",
+              fontFamily: SERIF,
+              fontSize: 14,
+              padding: "8px 10px",
+              border: `1px solid ${isSel ? color : COLORS.line}`,
+              background: isSel ? color : "#fff",
+              color: isSel ? "#fff" : COLORS.ink,
+              borderRadius: 3,
+              cursor: "pointer",
+            }}
+          >
+            {p.name}
+          </button>
+        );
+      })}
+      {list.length === 0 && (
+        <div style={{ fontFamily: MONO, fontSize: 12, color: "#a39c87", padding: "8px 0" }}>
+          everyone's assigned
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Setup: format, courses & tees, roster ----------
+function Setup({ players, rounds, setRounds, alternates, courses, saveCourses }) {
   function updateRoundField(roundId, field, value) {
     setRounds((prev) => prev.map((r) => (r.id === roundId ? { ...r, [field]: value } : r)));
   }
@@ -911,6 +1080,36 @@ function Setup({ players, rounds, setRounds, alternates }) {
   const boothPlayers = players.filter((p) => p.team === TEAM_BOOTH);
   const fishPlayers = players.filter((p) => p.team === TEAM_FISH);
   const totalHoles = rounds.reduce((s, r) => s + r.holes, 0);
+
+  function updateTee(courseName, teeId, field, value) {
+    const updated = {
+      ...courses,
+      [courseName]: {
+        ...courses[courseName],
+        tees: courses[courseName].tees.map((t) =>
+          t.id === teeId ? { ...t, [field]: field === "name" ? value : parseFloat(value) || 0 } : t
+        ),
+      },
+    };
+    saveCourses(updated);
+  }
+
+  function addTee(courseName) {
+    const newTee = { id: `tee-${Date.now()}`, name: "New", rating: 72.0, slope: 130, par: 72 };
+    const updated = {
+      ...courses,
+      [courseName]: { ...courses[courseName], tees: [...courses[courseName].tees, newTee] },
+    };
+    saveCourses(updated);
+  }
+
+  function removeTee(courseName, teeId) {
+    const updated = {
+      ...courses,
+      [courseName]: { ...courses[courseName], tees: courses[courseName].tees.filter((t) => t.id !== teeId) },
+    };
+    saveCourses(updated);
+  }
 
   return (
     <div style={{ display: "grid", gap: 30 }}>
@@ -957,20 +1156,75 @@ function Setup({ players, rounds, setRounds, alternates }) {
                 onChange={(e) => updateRoundField(r.id, "course", e.target.value)}
                 style={{ fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
               >
-                <option value="Highlands">Highlands</option>
-                <option value="Keep">The Keep</option>
+                {Object.keys(courses).map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             </div>
           ))}
         </div>
         <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 10 }}>
-          Each round uses the course handicap for whichever course is selected. Pairings are set
-          separately in the Pairings tab once captains decide the night before.
+          Each round is tied to a course. The specific tee each match plays is set per-match in
+          the Pairings tab — matches in the same round can play different tees.
         </div>
       </div>
 
       <div>
-        <SectionLabel>Roster & Course Handicaps</SectionLabel>
+        <SectionLabel>Courses & Tees</SectionLabel>
+        <div style={{ display: "grid", gap: 18 }}>
+          {Object.entries(courses).map(([courseName, course]) => (
+            <div key={courseName} style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
+              <div style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, marginBottom: 10 }}>{courseName}</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {course.tees.map((t) => (
+                  <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <input
+                      value={t.name}
+                      onChange={(e) => updateTee(courseName, t.id, "name", e.target.value)}
+                      placeholder="Tee name"
+                      style={{ width: 80, fontFamily: SERIF, fontSize: 14, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "5px 8px" }}
+                    />
+                    <LabeledNumber label="Rating" value={t.rating} step={0.1} onChange={(v) => updateTee(courseName, t.id, "rating", v)} />
+                    <LabeledNumber label="Slope" value={t.slope} step={1} onChange={(v) => updateTee(courseName, t.id, "slope", v)} />
+                    <LabeledNumber label="Par" value={t.par} step={1} onChange={(v) => updateTee(courseName, t.id, "par", v)} />
+                    <button
+                      onClick={() => removeTee(courseName, t.id)}
+                      style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
+                    >
+                      remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => addTee(courseName)}
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 12,
+                    padding: "8px",
+                    background: "transparent",
+                    border: `1px dashed ${COLORS.fairway}`,
+                    color: COLORS.fairway,
+                    cursor: "pointer",
+                    borderRadius: 3,
+                    width: "fit-content",
+                  }}
+                >
+                  + add tee
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 10 }}>
+          Course handicap = Index × (Slope / 113) + (Rating − Par), computed live per match using
+          whichever tee that match selected.
+        </div>
+      </div>
+
+      <div>
+        <SectionLabel>Roster & Handicap Index</SectionLabel>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
           {[
             { label: "Booth", color: COLORS.fairway, list: boothPlayers },
@@ -996,9 +1250,7 @@ function Setup({ players, rounds, setRounds, alternates }) {
                     }}
                   >
                     <span style={{ fontFamily: SERIF, fontSize: 14 }}>{p.name}</span>
-                    <span style={{ color: "#8a8470" }}>
-                      H {p.hcpHighlands} · K {p.hcpKeep}
-                    </span>
+                    <span style={{ color: "#8a8470" }}>index {p.index}</span>
                   </div>
                 ))}
               </div>
@@ -1011,6 +1263,21 @@ function Setup({ players, rounds, setRounds, alternates }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function LabeledNumber({ label, value, step, onChange }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>{label}</span>
+      <input
+        type="number"
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: 60, fontFamily: MONO, fontSize: 13, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "5px 6px" }}
+      />
     </div>
   );
 }
