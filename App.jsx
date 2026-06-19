@@ -22,8 +22,6 @@ const TEAM_BOOTH = "Booth";
 const TEAM_FISH = "Fish";
 
 // ---------- Roster ----------
-// index = USGA/WHS Handicap Index. Course handicap is computed live per the
-// tee each match actually plays, using: Index x (Slope/113) + (Rating - Par)
 const defaultPlayers = [
   { id: 1, name: "Booth", team: TEAM_BOOTH, index: 17.2 },
   { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 4.6 },
@@ -46,19 +44,30 @@ const defaultPlayers = [
 const alternates = [{ id: 99, name: "Aaron Jackson (17th man)" }];
 
 // ---------- Courses & tees ----------
-// Each course has one or more tees, each with its own rating/slope/par.
-// Matches choose a specific tee, which determines everyone's course handicap.
 const defaultCourses = {
   Highlands: {
-    tees: [{ id: "h-ii", name: "II", rating: 71.3, slope: 138, par: 71 }],
+    strokeIndex: [5, 1, 17, 13, 11, 9, 15, 7, 3, 16, 10, 2, 18, 8, 12, 6, 14, 4],
+    tees: [
+      { id: "h-i", name: "I", rating: 72.4, slope: 140, par: 71 },
+      { id: "h-ii", name: "II", rating: 71.3, slope: 138, par: 71 },
+      { id: "h-iii", name: "III", rating: 70.4, slope: 135, par: 71 },
+    ],
   },
   Keep: {
-    tees: [{ id: "k-blue", name: "Blue", rating: 73.7, slope: 140, par: 72 }],
+    strokeIndex: [1, 13, 9, 11, 7, 17, 15, 5, 3, 6, 10, 18, 4, 8, 12, 2, 16, 14],
+    tees: [
+      { id: "k-blue", name: "Blue", rating: 73.1, slope: 140, par: 72 },
+      { id: "k-bluewhite", name: "Blue/White", rating: 71.9, slope: 135, par: 72 },
+      { id: "k-white", name: "White", rating: 70.6, slope: 132, par: 72 },
+      { id: "k-whitegreen", name: "White/Green", rating: 68.3, slope: 130, par: 72 },
+      { id: "k-green", name: "Green", rating: 67.0, slope: 127, par: 72 },
+      { id: "k-greencopperm", name: "Green/Copper (M)", rating: 65.5, slope: 123, par: 72 },
+      { id: "k-greencopperw", name: "Green/Copper (W)", rating: 69.7, slope: 121, par: 72 },
+      { id: "k-copperm", name: "Copper (M)", rating: 64.2, slope: 120, par: 72 },
+      { id: "k-copperw", name: "Copper (W)", rating: 68.1, slope: 118, par: 72 },
+    ],
   },
 };
-
-// Generic stroke index 1-18 (placeholder until real hole-by-hole stroke index per tee is loaded)
-const strokeIndex = Array.from({ length: 18 }, (_, i) => i + 1);
 
 function findTee(courses, courseName, teeId) {
   const course = courses[courseName];
@@ -71,10 +80,10 @@ function courseHandicap(index, tee) {
   return Math.round(index * (tee.slope / 113) + (tee.rating - tee.par));
 }
 
-function strokesReceived(player, tee, holeIdx) {
+function strokesReceived(player, tee, courseStrokeIndex, holeIdx) {
   const hcp = courseHandicap(player.index, tee);
   if (hcp == null) return 0;
-  const si = strokeIndex[holeIdx];
+  const si = courseStrokeIndex ? courseStrokeIndex[holeIdx] : holeIdx + 1;
   const base = Math.floor(hcp / 18);
   const extra = si <= ((hcp % 18) + 18) % 18 ? 1 : 0;
   return base + extra;
@@ -94,7 +103,6 @@ function matchSize(format) {
   return format === "bestball" ? 2 : 1;
 }
 
-// pairings shape: { matches: [{ id, side1: [playerId,...], side2: [playerId,...], teeId }] }
 function emptyPairings() {
   return { matches: [] };
 }
@@ -126,25 +134,26 @@ function unassignedPlayers(pairings, players, team) {
   return players.filter((p) => p.team === team && !used.has(p.id));
 }
 
-function netBestBallScore(players, tee, scores, holeIdx) {
+function netBestBallScore(players, tee, courseStrokeIndex, scores, holeIdx) {
   const nets = players.map((p) => {
     const gross = scores?.[holeIdx]?.[p.id];
     if (gross == null) return null;
-    return gross - strokesReceived(p, tee, holeIdx);
+    return gross - strokesReceived(p, tee, courseStrokeIndex, holeIdx);
   });
   if (nets.some((n) => n == null)) return null;
   return Math.min(...nets);
 }
 
-function netSinglesScore(player, tee, scores, holeIdx) {
+function netSinglesScore(player, tee, courseStrokeIndex, scores, holeIdx) {
   const gross = scores?.[holeIdx]?.[player.id];
   if (gross == null) return null;
-  return gross - strokesReceived(player, tee, holeIdx);
+  return gross - strokesReceived(player, tee, courseStrokeIndex, holeIdx);
 }
 
 function matchPlayState(match, round, scores, courses) {
   const { format, holes } = round;
   const tee = findTee(courses, round.course, match.teeId);
+  const courseStrokeIndex = courses[round.course]?.strokeIndex;
   let diff = 0;
   let holesPlayed = 0;
   let decided = false;
@@ -153,11 +162,11 @@ function matchPlayState(match, round, scores, courses) {
   for (let h = 0; h < holes; h++) {
     let s1, s2;
     if (format === "bestball") {
-      s1 = netBestBallScore(match.side1, tee, scores, h);
-      s2 = netBestBallScore(match.side2, tee, scores, h);
+      s1 = netBestBallScore(match.side1, tee, courseStrokeIndex, scores, h);
+      s2 = netBestBallScore(match.side2, tee, courseStrokeIndex, scores, h);
     } else {
-      s1 = netSinglesScore(match.side1[0], tee, scores, h);
-      s2 = netSinglesScore(match.side2[0], tee, scores, h);
+      s1 = netSinglesScore(match.side1[0], tee, courseStrokeIndex, scores, h);
+      s2 = netSinglesScore(match.side2[0], tee, courseStrokeIndex, scores, h);
     }
     if (s1 == null || s2 == null) break;
     holesPlayed = h + 1;
@@ -200,7 +209,6 @@ function matchPlayState(match, round, scores, courses) {
   };
 }
 
-// ---------- Shared storage helpers (Supabase-backed) ----------
 function scoresKey(roundId) {
   return `${TOURNAMENT_ID}:scores:round-${roundId}`;
 }
@@ -232,12 +240,13 @@ async function saveJSON(key, value) {
       .from("tournament_kv")
       .upsert({ key, value, updated_at: new Date().toISOString() });
     if (error) throw error;
+    return { ok: true };
   } catch (e) {
     console.error("Failed to save", key, e);
+    return { ok: false, error: e?.message || String(e) };
   }
 }
 
-// ---------- UI bits ----------
 function TabButton({ active, onClick, children }) {
   return (
     <button
@@ -326,6 +335,7 @@ export default function GolfTracker() {
   });
   const [loaded, setLoaded] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   const matchesByRound = useMemo(() => {
     const m = {};
@@ -335,7 +345,6 @@ export default function GolfTracker() {
     return m;
   }, [rounds, pairingsByRound, players]);
 
-  // initial load
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -359,7 +368,6 @@ export default function GolfTracker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // poll
   useEffect(() => {
     if (!loaded) return;
     const interval = setInterval(async () => {
@@ -391,8 +399,6 @@ export default function GolfTracker() {
         b += state.points2;
       });
     });
-    // possible points fixed by roster size/format, independent of pairings progress,
-    // so "first to" doesn't shift around before pairings are finished
     const possible = rounds.reduce((sum, r) => {
       const size = matchSize(r.format);
       return sum + players.length / 2 / size;
@@ -412,10 +418,10 @@ export default function GolfTracker() {
   }
 
   function savePairings(roundId, updated) {
-    setPairingsByRound((prev) => {
-      const next = { ...prev, [roundId]: updated };
-      saveJSON(pairingsKey(roundId), updated);
-      return next;
+    setPairingsByRound((prev) => ({ ...prev, [roundId]: updated }));
+    saveJSON(pairingsKey(roundId), updated).then((res) => {
+      if (!res.ok) setSaveError(`Couldn't save pairings: ${res.error}`);
+      else setSaveError(null);
     });
   }
 
@@ -505,6 +511,24 @@ export default function GolfTracker() {
           Format & Players
         </TabButton>
       </div>
+
+      {saveError && (
+        <div
+          style={{
+            maxWidth: 980,
+            margin: "0 auto 20px",
+            background: "#fdeceb",
+            border: `1px solid ${COLORS.flag}`,
+            color: COLORS.flag,
+            borderRadius: 3,
+            padding: "10px 14px",
+            fontFamily: MONO,
+            fontSize: 12,
+          }}
+        >
+          {saveError}
+        </div>
+      )}
 
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
         {tab === "leaderboard" && (
@@ -777,9 +801,9 @@ function ScoreEntry({
 
           <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} />
+              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} />
               <div style={{ width: 1, background: COLORS.line, alignSelf: "stretch" }} />
-              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} />
+              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} />
             </div>
           </div>
         </div>
@@ -831,11 +855,11 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
   );
 }
 
-function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee }) {
+function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, courseStrokeIndex }) {
   return (
     <div style={{ flex: 1, minWidth: 200, display: "grid", gap: 8 }}>
       {players.map((p) => {
-        const strokes = tee ? strokesReceived(p, tee, holeIdx) : 0;
+        const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, holeIdx) : 0;
         const hcp = tee ? courseHandicap(p.index, tee) : null;
         const gross = scores?.[holeIdx]?.[p.id];
         return (
@@ -872,7 +896,6 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee })
   );
 }
 
-// ---------- Pairings: click-to-build match list with per-match tee ----------
 function Pairings({ rounds, activeRound, setActiveRound, round, players, pairings, savePairings, courses }) {
   const size = matchSize(round.format);
   const numMatches = players.length / 2 / size;
@@ -897,7 +920,7 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
   function toggleSelect(list, setList, playerId) {
     setList((prev) => {
       if (prev.includes(playerId)) return prev.filter((id) => id !== playerId);
-      if (prev.length >= size) return prev; // already full
+      if (prev.length >= size) return prev;
       return [...prev, playerId];
     });
   }
@@ -928,9 +951,6 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
     savePairings(round.id, updated);
   }
 
-  const byId = {};
-  players.forEach((p) => (byId[p.id] = p));
-
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
@@ -946,7 +966,6 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
         {complete ? `all ${numMatches} matches set` : `${matches.length} of ${numMatches} set`}
       </SectionLabel>
 
-      {/* Existing matches */}
       {matches.length > 0 && (
         <div style={{ display: "grid", gap: 10, marginBottom: 22 }}>
           {matches.map((m) => (
@@ -991,7 +1010,6 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
         </div>
       )}
 
-      {/* Builder for a new match */}
       {!complete && (
         <div style={{ background: "#fff", border: `1px dashed ${COLORS.fairway}`, borderRadius: 3, padding: "16px" }}>
           <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 12 }}>
@@ -1071,7 +1089,6 @@ function PlayerPicker({ color, list, selected, onToggle }) {
   );
 }
 
-// ---------- Setup: format, courses & tees, roster ----------
 function Setup({ players, rounds, setRounds, alternates, courses, saveCourses }) {
   function updateRoundField(roundId, field, value) {
     setRounds((prev) => prev.map((r) => (r.id === roundId ? { ...r, [field]: value } : r)));
