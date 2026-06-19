@@ -19,8 +19,14 @@ const SCRIPT = "'Yellowtail', cursive";
 
 function BrandFontLoader() {
   return (
-    <style>{`
+   <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Yellowtail&display=swap');
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background: ${COLORS.cream};
+      }
     `}</style>
   );
 }
