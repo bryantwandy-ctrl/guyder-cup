@@ -465,8 +465,6 @@ function LiveDot({ syncing }) {
     </div>
   );
 }
-What changed: the text now sits in a fixed-width box (minWidth: 46) so swapping between "live" and "syncing" doesn't change how much horizontal space that row takes up — which is what was kicking the header into a different flex-wrap and shoving the score line down every cycle. Combined with the slower poll, that jump should go away almost entirely.Now using credits • Your plan limit resets Friday at 4:50 PM.
-
 function Avatar({ player, size = 32 }) {
   const [errored, setErrored] = useState(false);
   const showImg = player?.photo && !errored;
