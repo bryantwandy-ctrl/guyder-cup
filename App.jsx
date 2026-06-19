@@ -19,8 +19,11 @@ const SCRIPT = "'Yellowtail', cursive";
 
 function BrandFontLoader() {
   return (
-   <style>{`
+    <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Yellowtail&display=swap');
+      * {
+        box-sizing: border-box;
+      }
       html, body, #root {
         margin: 0;
         padding: 0;
@@ -735,14 +738,16 @@ export default function GolfTracker() {
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             justifyContent: "space-between",
             alignItems: "flex-end",
+            gap: 12,
             borderBottom: `3px solid ${COLORS.navy}`,
             paddingBottom: 14,
           }}
         >
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
               <div
                 style={{
                   fontFamily: MONO,
@@ -756,8 +761,8 @@ export default function GolfTracker() {
               </div>
               <LiveDot syncing={syncing} />
             </div>
-         <h1 style={{ margin: 0, fontSize: 0, lineHeight: 0 }}>
-              <span style={{ fontFamily: SCRIPT, fontSize: 52, color: COLORS.navy, lineHeight: 1.3, display: "inline-block" }}>
+            <h1 style={{ margin: 0, fontSize: 0, lineHeight: 0 }}>
+              <span style={{ fontFamily: SCRIPT, fontSize: "clamp(32px, 11vw, 52px)", color: COLORS.navy, lineHeight: 1.3, display: "inline-block" }}>
                 Guyder
               </span>
               <span
@@ -770,6 +775,7 @@ export default function GolfTracker() {
                   textTransform: "uppercase",
                   marginTop: 14,
                 }}
+
               >
                 Cup
               </span>
@@ -866,9 +872,9 @@ export default function GolfTracker() {
 
 function Scoreline({ totalPoints, winNeeded }) {
   return (
-    <div style={{ display: "flex", gap: 22, alignItems: "baseline" }}>
+    <div style={{ display: "flex", gap: "clamp(10px, 4vw, 22px)", alignItems: "baseline", flexWrap: "wrap" }}>
       <TeamScore label="Booth" value={totalPoints.a} color={COLORS.fairway} />
-      <div style={{ fontFamily: MONO, fontSize: 13, color: COLORS.tan }}>first to {winNeeded}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: COLORS.tan, whiteSpace: "nowrap" }}>first to {winNeeded}</div>
       <TeamScore label="Fish" value={totalPoints.b} color={COLORS.flag} />
     </div>
   );
@@ -888,7 +894,7 @@ function TeamScore({ label, value, color }) {
       >
         {label}
       </div>
-      <div style={{ fontFamily: MONO, fontSize: 30, color, fontWeight: 700 }}>{value}</div>
+      <div style={{ fontFamily: MONO, fontSize: "clamp(20px, 6vw, 30px)", color, fontWeight: 700 }}>{value}</div>
     </div>
   );
 }
@@ -938,15 +944,15 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                       key={m.id}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr auto 1fr",
+                        gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
                         alignItems: "center",
                         padding: "12px 16px",
                         borderTop: idx === 0 ? "none" : `1px solid ${COLORS.line}`,
                         gap: 12,
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, fontWeight: state.leader === "side1" ? 700 : 400 }}>
-                        <div style={{ textAlign: "right" }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side1" ? 700 : 400 }}>
+                        <div style={{ textAlign: "right", minWidth: 0, overflowWrap: "break-word" }}>
                           {m.side1.map((p) => p.name).join(" / ")}
                           {odds && (
                             <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
@@ -954,7 +960,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                             </div>
                           )}
                         </div>
-                        <div style={{ display: "flex" }}>
+                        <div style={{ display: "flex", flexShrink: 0 }}>
                           {m.side1.map((p) => (
                             <Avatar key={p.id} player={p} size={28} />
                           ))}
@@ -965,7 +971,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                           fontFamily: MONO,
                           fontSize: 13,
                           textAlign: "center",
-                          minWidth: 150,
+                          minWidth: 0,
                           color: state.holesPlayed === 0 ? "#a39c87" : COLORS.ink,
                           background: COLORS.cream,
                           border: `1px solid ${COLORS.line}`,
@@ -981,13 +987,13 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                           <div style={{ fontSize: 10, color: "#a39c87", marginTop: 2 }}>{state.tee.name} tees</div>
                         )}
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: state.leader === "side2" ? 700 : 400 }}>
-                        <div style={{ display: "flex" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side2" ? 700 : 400 }}>
+                        <div style={{ display: "flex", flexShrink: 0 }}>
                           {m.side2.map((p) => (
                             <Avatar key={p.id} player={p} size={28} />
                           ))}
                         </div>
-                        <div>
+                        <div style={{ minWidth: 0, overflowWrap: "break-word" }}>
                           {m.side2.map((p) => p.name).join(" / ")}
                           {odds && (
                             <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
@@ -1176,7 +1182,7 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
               onClick={() => onPick(m.id)}
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr auto 1fr",
+                gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
                 alignItems: "center",
                 gap: 12,
                 padding: "14px 16px",
@@ -1189,25 +1195,25 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
                 textAlign: "left",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
-                <div style={{ textAlign: "right" }}>{m.side1.map((p) => p.name).join(" / ")}</div>
-                <div style={{ display: "flex" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <div style={{ textAlign: "right", minWidth: 0, overflowWrap: "break-word" }}>{m.side1.map((p) => p.name).join(" / ")}</div>
+                <div style={{ display: "flex", flexShrink: 0 }}>
                   {m.side1.map((p) => (
                     <Avatar key={p.id} player={p} size={26} />
                   ))}
                 </div>
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", minWidth: 100, textAlign: "center" }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", minWidth: 0, textAlign: "center" }}>
                 <div>{state.holesPlayed > 0 ? `thru ${state.holesPlayed}` : "not started"}</div>
                 {state.tee && <div style={{ fontSize: 10 }}>{state.tee.name} tees</div>}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ display: "flex" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <div style={{ display: "flex", flexShrink: 0 }}>
                   {m.side2.map((p) => (
                     <Avatar key={p.id} player={p} size={26} />
                   ))}
                 </div>
-                <div>{m.side2.map((p) => p.name).join(" / ")}</div>
+                <div style={{ minWidth: 0, overflowWrap: "break-word" }}>{m.side2.map((p) => p.name).join(" / ")}</div>
               </div>
             </button>
           );
@@ -1369,7 +1375,7 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
               key={m.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr auto auto",
+                gridTemplateColumns: "minmax(0, 1fr) auto auto",
                 alignItems: "center",
                 gap: 10,
                 background: "#fff",
@@ -1378,8 +1384,8 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                 padding: "10px 14px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: SERIF, fontSize: 14 }}>
-                <div style={{ display: "flex" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: SERIF, fontSize: 14, minWidth: 0, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", flexShrink: 0 }}>
                   {m.side1.map((p) => (
                     <Avatar key={p.id} player={p} size={26} />
                   ))}
@@ -1421,7 +1427,7 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
           <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 12 }}>
             Tap {size === 2 ? "two" : "one"} player{size === 2 ? "s" : ""} from each team to build the next match.
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, marginBottom: 14 }}>
             <PlayerPicker color={COLORS.fairway} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} />
             <PlayerPicker color={COLORS.flag} list={unFish} selected={selFish} onToggle={(id) => toggleSelect(selFish, setSelFish, id)} />
           </div>
@@ -1483,10 +1489,13 @@ function PlayerPicker({ color, list, selected, onToggle }) {
               color: isSel ? "#fff" : COLORS.ink,
               borderRadius: 3,
               cursor: "pointer",
+              width: "100%",
+              minWidth: 0,
+              overflowWrap: "break-word",
             }}
           >
             <Avatar player={p} size={24} />
-            {p.name}
+            <span style={{ minWidth: 0, overflowWrap: "break-word" }}>{p.name}</span>
           </button>
         );
       })}
@@ -1752,7 +1761,7 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
           handicap, stroke allowance, and live match result recalculates from this number
           automatically, no redeploy needed.
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
           {[
             { label: "Booth", color: COLORS.fairway, list: boothPlayers },
             { label: "Fish", color: COLORS.flag, list: fishPlayers },
