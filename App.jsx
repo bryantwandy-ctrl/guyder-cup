@@ -351,6 +351,17 @@ function matchOdds(match, round, scores, courses) {
   };
 }
 
+function matchResultLabel(state, totalHoles) {
+  if (!state.final) return null;
+  if (state.diff === 0) return "Halved";
+  const margin = Math.abs(state.diff);
+  if (state.decided) {
+    const remaining = totalHoles - state.decidedAt;
+    return `${margin}&${remaining}`;
+  }
+  return `${margin} UP`;
+}
+
 function formatOdds(n) {
   return n > 0 ? `+${n}` : `${n}`;
 }
@@ -465,6 +476,7 @@ function LiveDot({ syncing }) {
     </div>
   );
 }
+
 function Avatar({ player, size = 32 }) {
   const [errored, setErrored] = useState(false);
   const showImg = player?.photo && !errored;
@@ -755,9 +767,9 @@ export default function GolfTracker() {
           </button>
         </div>
       </div>
-      );
+    );
   }
-  
+
   return (
     <>
       <BrandFontLoader />
@@ -1014,10 +1026,20 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                           padding: "4px 8px",
                         }}
                       >
-                        <div>
-                          {state.label}
-                          {state.holesPlayed > 0 && ` · thru ${state.holesPlayed}`}
-                        </div>
+                        {state.final ? (
+                          <>
+                            <div style={{ fontWeight: 700, color: COLORS.navy }}>
+                              {(state.leader === "side1" ? m.side1 : state.leader === "side2" ? m.side2 : []).map((p) => p.name).join(" & ")}
+                              {state.leader ? " Won" : ""}
+                            </div>
+                            <div>{matchResultLabel(state, r.holes)}</div>
+                          </>
+                        ) : (
+                          <div>
+                            {state.label}
+                            {state.holesPlayed > 0 && ` · thru ${state.holesPlayed}`}
+                          </div>
+                        )}
                         {state.tee && (
                           <div style={{ fontSize: 10, color: "#a39c87", marginTop: 2 }}>{state.tee.name} tees</div>
                         )}
