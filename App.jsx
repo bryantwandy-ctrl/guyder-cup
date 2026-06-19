@@ -41,6 +41,25 @@ const defaultPlayers = [
 
 const alternates = [{ id: 99, name: "Aaron Jackson (17th man)" }];
 
+const playerHistory = {
+  1: { fullName: "John Booth", notes: "Lifetime Member", overall: { w: 1, l: 3, winPct: 0.25 }, captain: null, matchRecord: { w: 2, l: 10, as: 1, points: 2.5, matches: 13 } },
+  2: { fullName: "Clinton Mitchell", notes: "Founding 8, Captain: 2020", overall: { w: 4, l: 4, winPct: 0.5 }, captain: null, matchRecord: { w: 9, l: 4, as: 0, points: 9, matches: 13 } },
+  3: { fullName: "Dan Niemeyer", notes: "Lifetime Member", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
+  4: { fullName: "Matt Ramsbottom", notes: "Founding 8, Captain: 2019, BOD", overall: { w: 5, l: 3, winPct: 0.625 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 9, l: 4, as: 0, points: 9, matches: 13 } },
+  5: { fullName: null, notes: "No historical record on file", overall: null, captain: null, matchRecord: null },
+  6: { fullName: null, notes: "No historical record on file", overall: null, captain: null, matchRecord: null },
+  7: { fullName: "Bobby Hogan", notes: "Lifetime Member", overall: { w: 3, l: 4, winPct: 0.4286 }, captain: null, matchRecord: { w: 7, l: 4, as: 2, points: 8, matches: 13 } },
+  8: { fullName: "John Martin IV", notes: "Founding 8, Captain: 2020 (inferred match - J4)", inferred: true, overall: { w: 5, l: 3, winPct: 0.625 }, captain: null, matchRecord: { w: 4, l: 9, as: 0, points: 4, matches: 13 } },
+  9: { fullName: "Tyler Fishbune", notes: "Lifetime Member", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 6, l: 7, as: 0, points: 6, matches: 13 } },
+  10: { fullName: "Daniel Jackson", notes: "Founding 8, Captain: 2018 (inferred match - Danny)", inferred: true, overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 8, l: 3, as: 2, points: 9, matches: 13 } },
+  11: { fullName: "Richard Rames", notes: "Lifetime Member", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: null, matchRecord: { w: 7, l: 3, as: 0, points: 7, matches: 10 } },
+  12: { fullName: "Jacob Bearman", notes: "Founding 8, Captain: 2017 & 2022, BOD", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 6, l: 6, as: 1, points: 6.5, matches: 13 } },
+  13: { fullName: "Chris Littel", notes: "", overall: { w: 0, l: 1, winPct: 0 }, captain: null, matchRecord: { w: 1, l: 2, as: 0, points: 1, matches: 3 } },
+  14: { fullName: "Ben Larson", notes: "Founding 8, Captain: 2018 & 2022, BOD", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 2, l: 0, winPct: 1 }, matchRecord: { w: 2, l: 10, as: 1, points: 2.5, matches: 13 } },
+  15: { fullName: "Doug Gallow", notes: "Lifetime Member, Captain: 2023", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: { w: 1, l: 0, winPct: 1 }, matchRecord: { w: 9, l: 3, as: 1, points: 9.5, matches: 13 } },
+  16: { fullName: "Jon Meyer", notes: "Founding 8, Captain: 2017, BOD", overall: { w: 1, l: 7, winPct: 0.125 }, captain: { w: 0, l: 2, winPct: 0 }, matchRecord: { w: 2, l: 7, as: 4, points: 4, matches: 13 } },
+};
+
 const defaultCourses = {
   Highlands: {
     strokeIndex: [5, 1, 17, 13, 11, 9, 15, 7, 3, 16, 10, 2, 18, 8, 12, 6, 14, 4],
@@ -213,6 +232,78 @@ function matchPlayState(match, round, scores, courses) {
   };
 }
 
+function holeResult(match, round, scores, courses, holeIdx) {
+  const tee = findTee(courses, round.course, match.teeId);
+  const courseStrokeIndex = courses[round.course]?.strokeIndex;
+  const lowestHcp = tee ? matchLowestHandicap(match, tee) : 0;
+
+  function sideDetail(players) {
+    const entries = players.map((p) => {
+      const gross = scores?.[holeIdx]?.[p.id];
+      if (gross == null) return null;
+      const strokes = strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx);
+      return { playerId: p.id, gross, net: gross - strokes, strokes };
+    });
+    if (entries.some((e) => e == null)) return null;
+    const best = entries.reduce((a, b) => (b.net < a.net ? b : a));
+    return { entries, net: best.net, carriedBy: best.playerId };
+  }
+
+  const d1 = sideDetail(match.side1);
+  const d2 = sideDetail(match.side2);
+  if (!d1 || !d2) return { complete: false };
+
+  let winner = null;
+  if (d1.net < d2.net) winner = "side1";
+  else if (d2.net < d1.net) winner = "side2";
+  else winner = "halve";
+
+  return {
+    complete: true,
+    winner,
+    side1: d1,
+    side2: d2,
+    carriedBy: winner === "halve" ? null : winner === "side1" ? d1.carriedBy : d2.carriedBy,
+  };
+}
+
+function americanOdds(probability) {
+  const p = Math.min(Math.max(probability, 0.03), 0.97);
+  if (p >= 0.5) return Math.round(-100 * (p / (1 - p)));
+  return Math.round(100 * ((1 - p) / p));
+}
+
+function matchOdds(match, round, scores, courses) {
+  const tee = findTee(courses, round.course, match.teeId);
+  if (!tee) return null;
+  const avgHcp = (players) => {
+    const hcps = players.map((p) => courseHandicap(p.index, tee)).filter((h) => h != null);
+    return hcps.length ? hcps.reduce((a, b) => a + b, 0) / hcps.length : 0;
+  };
+  const hcpGap = avgHcp(match.side1) - avgHcp(match.side2);
+  let side1Prob = 0.5 + Math.max(Math.min(hcpGap * 0.025, 0.4), -0.4);
+
+  const state = matchPlayState(match, round, scores, courses);
+  if (state.holesPlayed > 0 && !state.final) {
+    const holesLeft = round.holes - state.holesPlayed;
+    if (holesLeft > 0) {
+      const swing = Math.max(Math.min(state.diff / holesLeft, 1), -1);
+      side1Prob = side1Prob * 0.3 + (0.5 + swing * 0.45) * 0.7;
+    }
+  } else if (state.final) {
+    side1Prob = state.diff > 0 ? 0.97 : state.diff < 0 ? 0.03 : 0.5;
+  }
+
+  return {
+    side1: americanOdds(side1Prob),
+    side2: americanOdds(1 - side1Prob),
+    live: state.holesPlayed > 0,
+  };
+}
+
+function formatOdds(n) {
+  return n > 0 ? `+${n}` : `${n}`;
+}
 function scoresKey(roundId) {
   return `${TOURNAMENT_ID}:scores:round-${roundId}`;
 }
@@ -343,6 +434,7 @@ export default function GolfTracker() {
   const [loaded, setLoaded] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [takeoverDismissed, setTakeoverDismissed] = useState(false);
 
   const matchesByRound = useMemo(() => {
     const m = {};
@@ -417,6 +509,16 @@ export default function GolfTracker() {
     return { a, b, possible };
   }, [rounds, matchesByRound, scoresByRound, players, courses]);
 
+  const tournamentComplete = useMemo(() => {
+    return rounds.every((r) => {
+      const matches = matchesByRound[r.id];
+      const required = players.length / 2 / matchSize(r.format);
+      if (matches.length !== required) return false;
+      const scores = scoresByRound[r.id] || emptyScores(r.holes);
+      return matches.every((m) => matchPlayState(m, r, scores, courses).holesPlayed === r.holes);
+    });
+  }, [rounds, matchesByRound, scoresByRound, players, courses]);
+
   function updateScore(roundId, holeIdx, playerId, value) {
     setScoresByRound((prev) => {
       const next = { ...prev };
@@ -469,6 +571,89 @@ export default function GolfTracker() {
         }}
       >
         loading scores…
+      </div>
+    );
+  }
+
+  if (tournamentComplete && !takeoverDismissed) {
+    const winningTeam = totalPoints.a > totalPoints.b ? "Booth" : totalPoints.b > totalPoints.a ? "Fish" : null;
+    const winColor = winningTeam === "Booth" ? COLORS.fairway : COLORS.flag;
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: winColor,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          padding: 24,
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <img
+          src="/victory.jpg"
+          alt=""
+          onError={(e) => {
+            e.target.style.display = "none";
+          }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            opacity: 0.55,
+          }}
+        />
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div
+            style={{
+              fontFamily: MONO,
+              fontSize: 13,
+              letterSpacing: "0.25em",
+              textTransform: "uppercase",
+              color: COLORS.cream,
+              marginBottom: 12,
+              opacity: 0.85,
+            }}
+          >
+            The Guyder Cup is final
+          </div>
+          <h1
+            style={{
+              fontFamily: SERIF,
+              fontSize: 52,
+              color: COLORS.cream,
+              margin: "0 0 10px",
+              textShadow: "0 2px 10px rgba(0,0,0,0.3)",
+            }}
+          >
+            {winningTeam ? `Congrats Team ${winningTeam}!` : "It's a tie!"}
+          </h1>
+          <div style={{ fontFamily: MONO, fontSize: 20, color: COLORS.cream, marginBottom: 30 }}>
+            Booth {totalPoints.a} — {totalPoints.b} Fish
+          </div>
+          <button
+            onClick={() => setTakeoverDismissed(true)}
+            style={{
+              fontFamily: MONO,
+              fontSize: 14,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              padding: "12px 28px",
+              background: COLORS.cream,
+              color: winColor,
+              border: "none",
+              borderRadius: 3,
+              cursor: "pointer",
+            }}
+          >
+            See Results
+          </button>
+        </div>
       </div>
     );
   }
@@ -666,6 +851,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                 )}
                 {matches.map((m, idx) => {
                   const state = matchPlayState(m, r, scores, courses);
+                  const odds = matchOdds(m, r, scores, courses);
                   return (
                     <div
                       key={m.id}
@@ -680,6 +866,11 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                     >
                       <div style={{ textAlign: "right", fontWeight: state.leader === "side1" ? 700 : 400 }}>
                         {m.side1.map((p) => p.name).join(" / ")}
+                        {odds && (
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
+                            {formatOdds(odds.side1)}
+                          </div>
+                        )}
                       </div>
                       <div
                         style={{
@@ -704,6 +895,11 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                       </div>
                       <div style={{ fontWeight: state.leader === "side2" ? 700 : 400 }}>
                         {m.side2.map((p) => p.name).join(" / ")}
+                        {odds && (
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
+                            {formatOdds(odds.side2)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -733,6 +929,8 @@ function ScoreEntry({
   const myMatch = matches.find((m) => m.id === myMatchId);
   const tee = myMatch ? findTee(courses, round.course, myMatch.teeId) : null;
   const lowestHcp = myMatch && tee ? matchLowestHandicap(myMatch, tee) : 0;
+  const hResult = myMatch ? holeResult(myMatch, round, scores, courses, holeIdx) : { complete: false };
+  const odds = myMatch ? matchOdds(myMatch, round, scores, courses) : null;
 
   return (
     <div>
@@ -798,6 +996,25 @@ function ScoreEntry({
             </div>
           )}
 
+          {odds && (
+            <div
+              style={{
+                fontFamily: MONO,
+                fontSize: 12,
+                color: "#8a8470",
+                marginBottom: 14,
+                display: "flex",
+                gap: 14,
+                flexWrap: "wrap",
+              }}
+            >
+              <span>
+                {odds.live ? "live line" : "pregame line"}: {myMatch.side1.map((p) => p.name).join("/")}{" "}
+                {formatOdds(odds.side1)} · {myMatch.side2.map((p) => p.name).join("/")} {formatOdds(odds.side2)}
+              </span>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
             {Array.from({ length: round.holes }, (_, h) => (
               <button
@@ -820,11 +1037,29 @@ function ScoreEntry({
             ))}
           </div>
 
+          {hResult.complete && (
+            <div
+              style={{
+                fontFamily: MONO,
+                fontSize: 13,
+                marginBottom: 14,
+                padding: "8px 12px",
+                background: hResult.winner === "halve" ? "#f0ece1" : "#fff3cd",
+                border: `1px solid ${COLORS.tan}`,
+                borderRadius: 3,
+              }}
+            >
+              {hResult.winner === "halve"
+                ? "Hole halved"
+                : `${(hResult.winner === "side1" ? myMatch.side1 : myMatch.side2).map((p) => p.name).join("/")} win the hole`}
+            </div>
+          )}
+
           <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} />
+              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} />
               <div style={{ width: 1, background: COLORS.line, alignSelf: "stretch" }} />
-              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} />
+              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} />
             </div>
           </div>
         </div>
@@ -876,23 +1111,49 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
   );
 }
 
-function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, courseStrokeIndex, lowestHcp }) {
+function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, courseStrokeIndex, lowestHcp, carriedBy }) {
   return (
     <div style={{ flex: 1, minWidth: 200, display: "grid", gap: 8 }}>
       {players.map((p) => {
         const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx) : 0;
         const hcp = tee ? courseHandicap(p.index, tee) : null;
-        const allowance = hcp != null ? Math.max(hcp - lowestHcp, 0) : null;
+        const isLowMan = hcp != null && hcp === lowestHcp;
         const gross = scores?.[holeIdx]?.[p.id];
+        const net = gross != null ? gross - strokes : null;
+        const carried = carriedBy === p.id;
         return (
-          <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div
+            key={p.id}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 10,
+              padding: carried ? "6px 8px" : "0",
+              background: carried ? "#fff3cd" : "transparent",
+              border: carried ? `1px solid ${COLORS.tan}` : "none",
+              borderRadius: 3,
+            }}
+          >
             <div>
-              <div style={{ fontWeight: 600 }}>{p.name}</div>
+              <div style={{ fontWeight: 600 }}>
+                {p.name}
+                {isLowMan && (
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.tan, marginLeft: 6, textTransform: "uppercase" }}>
+                    low man
+                  </span>
+                )}
+                {carried && (
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.flag, marginLeft: 6, textTransform: "uppercase" }}>
+                    carried it
+                  </span>
+                )}
+              </div>
               <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
                 index {p.index}
                 {hcp != null ? ` · course hcp ${hcp}` : ""}
-                {allowance != null ? ` · plays off low man at +${allowance}` : ""}
-                {strokes > 0 ? ` · +${strokes} this hole` : ""}
+                {!isLowMan && strokes > 0 ? ` · +${strokes} this hole` : ""}
+                {net != null && net !== gross ? ` · net ${net}` : ""}
               </div>
             </div>
             <input
@@ -1112,7 +1373,92 @@ function PlayerPicker({ color, list, selected, onToggle }) {
   );
 }
 
+function PlayerStatsModal({ player, onClose }) {
+  const history = playerHistory[player.id];
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15,42,29,0.65)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 50,
+        padding: 20,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: COLORS.cream,
+          borderRadius: 4,
+          padding: "24px 28px",
+          maxWidth: 420,
+          width: "100%",
+          border: `2px solid ${COLORS.fairway}`,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+          <h2 style={{ margin: 0, fontFamily: SERIF, fontSize: 24 }}>{player.name}</h2>
+          <button onClick={onClose} style={{ border: "none", background: "transparent", fontFamily: MONO, fontSize: 13, color: COLORS.tan, cursor: "pointer" }}>
+            close
+          </button>
+        </div>
+        {!history || !history.overall ? (
+          <div style={{ fontFamily: MONO, fontSize: 13, color: "#8a8470", marginTop: 12 }}>
+            No historical record on file for this player.
+          </div>
+        ) : (
+          <div style={{ marginTop: 14 }}>
+            {history.fullName && (
+              <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 4 }}>
+                {history.fullName}
+                {history.inferred ? " (best-guess match to current roster name)" : ""}
+              </div>
+            )}
+            {history.notes && (
+              <div style={{ fontFamily: MONO, fontSize: 12, color: COLORS.tan, marginBottom: 14 }}>{history.notes}</div>
+            )}
+            <StatRow label="Overall Guyder Record" w={history.overall.w} l={history.overall.l} extra={`${Math.round(history.overall.winPct * 100)}%`} />
+            {history.captain && (
+              <StatRow label="Captain's Record" w={history.captain.w} l={history.captain.l} extra={`${Math.round(history.captain.winPct * 100)}%`} />
+            )}
+            {history.matchRecord && (
+              <>
+                <StatRow
+                  label="Match Record (since 2022)"
+                  w={history.matchRecord.w}
+                  l={history.matchRecord.l}
+                  extra={`${history.matchRecord.as} AS`}
+                />
+                <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginTop: 8 }}>
+                  {history.matchRecord.points} points across {history.matchRecord.matches} matches
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatRow({ label, w, l, extra }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${COLORS.line}` }}>
+      <span style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>{label}</span>
+      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>
+        {w}-{l} <span style={{ color: "#8a8470", fontWeight: 400 }}>({extra})</span>
+      </span>
+    </div>
+  );
+}
+
 function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, saveCourses }) {
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+
   function updateRoundField(roundId, field, value) {
     setRounds((prev) => prev.map((r) => (r.id === roundId ? { ...r, [field]: value } : r)));
   }
@@ -1302,7 +1648,22 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                       fontSize: 12,
                     }}
                   >
-                    <span style={{ fontFamily: SERIF, fontSize: 14 }}>{p.name}</span>
+                    <button
+                      onClick={() => setSelectedPlayer(p)}
+                      style={{
+                        fontFamily: SERIF,
+                        fontSize: 14,
+                        background: "transparent",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        color: COLORS.ink,
+                        textDecoration: "underline",
+                        textDecorationColor: COLORS.line,
+                      }}
+                    >
+                      {p.name}
+                    </button>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ color: "#8a8470" }}>index</span>
                       <input
@@ -1333,6 +1694,7 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
           </div>
         )}
       </div>
+      {selectedPlayer && <PlayerStatsModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />}
     </div>
   );
 }
