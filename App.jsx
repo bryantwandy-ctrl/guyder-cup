@@ -95,13 +95,13 @@ const playerHistory = {
   1: { fullName: "John Booth", notes: "Member since 2022", overall: { w: 1, l: 3, winPct: 0.25 }, captain: null, matchRecord: { w: 2, l: 10, as: 1, points: 2.5, matches: 13 } },
   2: { fullName: "Clinton Mitchell", notes: "Founding 8, Captain: 2020", overall: { w: 4, l: 4, winPct: 0.5 }, captain: null, matchRecord: { w: 9, l: 4, as: 0, points: 9, matches: 13 } },
   3: { fullName: "Dan Niemeyer", notes: "Member since 2022", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
-  4: { fullName: "Matt Ramsbottom", notes: "Founding 8, Captain: 2019 & 2025, BOD", overall: { w: 5, l: 3, winPct: 0.625 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 9, l: 4, as: 0, points: 9, matches: 13 } },
- 5: { fullName: "Mario Scrimenti", notes: "Member since 2018, Captain: 2021 & 2025", overall: { w: 2, l: 5, winPct: 0.2857 }, captain: { w: 2, l: 1, winPct: 0.6667 }, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
-  6: { fullName: "Andy Bryant", notes: "Founding 8, Captain: 2019 & 2023", overall: { w: 3, l: 5, winPct: 0.375 }, captain: { w: 0, l: 2, winPct: 0 }, matchRecord: { w: 5, l: 8, as: 0, points: 5, matches: 13 } },
+  4: { fullName: "Matt Ramsbottom", notes: "Founding 8, Captain: 2019, BOD", overall: { w: 5, l: 3, winPct: 0.625 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 9, l: 4, as: 0, points: 9, matches: 13 } },
+ 5: { fullName: "Mario Scrimenti", notes: "Member since 2018, Captain: 2021 & 2025 (Rio)", inferred: true, overall: { w: 2, l: 5, winPct: 0.2857 }, captain: { w: 2, l: 1, winPct: 0.6667 }, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
+  6: { fullName: "Andy Bryant", notes: "Founding 8, Captain: 2019 & 2023 (AB)", overall: { w: 3, l: 5, winPct: 0.375 }, captain: { w: 0, l: 2, winPct: 0 }, matchRecord: { w: 5, l: 8, as: 0, points: 5, matches: 13 } },
   7: { fullName: "Bobby Hogan", notes: "Member since 2018", overall: { w: 3, l: 4, winPct: 0.4286 }, captain: null, matchRecord: { w: 7, l: 4, as: 2, points: 8, matches: 13 } },
-  8: { fullName: "John Martin IV", notes: "Founding 8, Captain: 2020", overall: { w: 5, l: 3, winPct: 0.625 }, captain: null, matchRecord: { w: 4, l: 9, as: 0, points: 4, matches: 13 } },
+  8: { fullName: "John Martin IV", notes: "Founding 8, Captain: 2020 (inferred match - J4)", inferred: true, overall: { w: 5, l: 3, winPct: 0.625 }, captain: null, matchRecord: { w: 4, l: 9, as: 0, points: 4, matches: 13 } },
   9: { fullName: "Tyler Fishbune", notes: "Member since 2022", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 6, l: 7, as: 0, points: 6, matches: 13 } },
-  10: { fullName: "Daniel Jackson", notes: "Founding 8, Captain: 2017 & 2024", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 8, l: 3, as: 2, points: 9, matches: 13 } },
+  10: { fullName: "Daniel Jackson", notes: "Founding 8, Captain: 2018 (inferred match - Danny)", inferred: true, overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 8, l: 3, as: 2, points: 9, matches: 13 } },
   11: { fullName: "Richard Rames", notes: "Member since 2018", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: null, matchRecord: { w: 7, l: 3, as: 0, points: 7, matches: 10 } },
   12: { fullName: "Jacob Bearman", notes: "Founding 8, Captain: 2017 & 2022, BOD", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 6, l: 6, as: 1, points: 6.5, matches: 13 } },
   13: { fullName: "Chris Littel", notes: "Member since 2025", overall: { w: 0, l: 1, winPct: 0 }, captain: null, matchRecord: { w: 1, l: 2, as: 0, points: 1, matches: 3 } },
@@ -250,6 +250,7 @@ function matchPlayState(match, round, scores, courses) {
     if (!decided && Math.abs(diff) > remaining) {
       decided = true;
       decidedAt = holesPlayed;
+      break;
     }
   }
 
@@ -315,6 +316,30 @@ function holeResult(match, round, scores, courses, holeIdx) {
     side2: d2,
     carriedBy: winner === "halve" ? null : winner === "side1" ? d1.carriedBy : d2.carriedBy,
   };
+}
+
+function playerTotalGross(playerId, scores) {
+  let total = 0;
+  let any = false;
+  scores.forEach((holeObj) => {
+    const g = holeObj?.[playerId];
+    if (g != null) {
+      total += g;
+      any = true;
+    }
+  });
+  return any ? total : null;
+}
+
+function matchCarryCounts(match, round, scores, courses) {
+  const counts = {};
+  for (let h = 0; h < round.holes; h++) {
+    const res = holeResult(match, round, scores, courses, h);
+    if (res.complete && res.carriedBy) {
+      counts[res.carriedBy] = (counts[res.carriedBy] || 0) + 1;
+    }
+  }
+  return counts;
 }
 
 function americanOdds(probability) {
@@ -1104,6 +1129,18 @@ function ScoreEntry({
   const lowestHcp = myMatch && tee ? matchLowestHandicap(myMatch, tee) : 0;
   const hResult = myMatch ? holeResult(myMatch, round, scores, courses, holeIdx) : { complete: false };
   const odds = myMatch ? matchOdds(myMatch, round, scores, courses) : null;
+  const courseStrokeIndex = courses[round.course]?.strokeIndex;
+  const holeHandicap = courseStrokeIndex ? courseStrokeIndex[holeIdx] : null;
+  const carryCounts = useMemo(
+    () => (myMatch ? matchCarryCounts(myMatch, round, scores, courses) : {}),
+    [myMatch, round, scores, courses]
+  );
+
+  function isHoleComplete(h) {
+    if (!myMatch) return false;
+    const allPlayers = [...myMatch.side1, ...myMatch.side2];
+    return allPlayers.every((p) => scores?.[h]?.[p.id] != null);
+  }
 
   return (
     <div>
@@ -1144,6 +1181,7 @@ function ScoreEntry({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
             <SectionLabel>
               {round.label} ({round.course}{tee ? `, ${tee.name} tees` : ""}) — Hole {holeIdx + 1} of {round.holes}
+              {holeHandicap != null && ` · Hole Handicap ${holeHandicap}`}
             </SectionLabel>
             <button
               onClick={() => setMyMatchId(null)}
@@ -1189,25 +1227,28 @@ function ScoreEntry({
           )}
 
           <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
-            {Array.from({ length: round.holes }, (_, h) => (
-              <button
-                key={h}
-                onClick={() => setHoleIdx(h)}
-                style={{
-                  width: 30,
-                  height: 30,
-                  fontFamily: MONO,
-                  fontSize: 12,
-                  border: `1px solid ${COLORS.line}`,
-                  background: h === holeIdx ? COLORS.tan : "#fff",
-                  color: h === holeIdx ? "#fff" : COLORS.ink,
-                  cursor: "pointer",
-                  borderRadius: 2,
-                }}
-              >
-                {h + 1}
-              </button>
-            ))}
+            {Array.from({ length: round.holes }, (_, h) => {
+              const complete = isHoleComplete(h);
+              return (
+                <button
+                  key={h}
+                  onClick={() => setHoleIdx(h)}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    fontFamily: MONO,
+                    fontSize: 12,
+                    border: `1px solid ${COLORS.line}`,
+                    background: h === holeIdx ? COLORS.tan : complete ? COLORS.navy : "#fff",
+                    color: h === holeIdx ? "#fff" : complete ? "#fff" : COLORS.ink,
+                    cursor: "pointer",
+                    borderRadius: 2,
+                  }}
+                >
+                  {h + 1}
+                </button>
+              );
+            })}
           </div>
 
           {hResult.complete && (
@@ -1230,9 +1271,9 @@ function ScoreEntry({
 
           <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} />
+              <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} carryCounts={carryCounts} />
               <div style={{ width: 1, background: COLORS.line, alignSelf: "stretch" }} />
-              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} />
+              <MatchSidePlayers players={myMatch.side2} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} carryCounts={carryCounts} />
             </div>
           </div>
         </div>
@@ -1298,7 +1339,7 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
   );
 }
 
-function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, courseStrokeIndex, lowestHcp, carriedBy }) {
+function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, courseStrokeIndex, lowestHcp, carriedBy, carryCounts }) {
   return (
     <div style={{ flex: 1, minWidth: 200, display: "grid", gap: 8 }}>
       {players.map((p) => {
@@ -1308,6 +1349,8 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
         const gross = scores?.[holeIdx]?.[p.id];
         const net = gross != null ? gross - strokes : null;
         const carried = carriedBy === p.id;
+        const total = playerTotalGross(p.id, scores);
+        const carries = carryCounts?.[p.id] || 0;
         return (
           <div
             key={p.id}
@@ -1327,6 +1370,9 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
               <div>
                 <div style={{ fontWeight: 600 }}>
                   {p.name}
+                  {total != null && (
+                    <span style={{ fontFamily: MONO, fontWeight: 400, color: "#8a8470" }}> ({total})</span>
+                  )}
                   {isLowMan && (
                     <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.tan, marginLeft: 6, textTransform: "uppercase" }}>
                       low man
@@ -1343,6 +1389,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                   {hcp != null ? ` · course hcp ${hcp}` : ""}
                   {!isLowMan && strokes > 0 ? ` · +${strokes} this hole` : ""}
                   {net != null && net !== gross ? ` · net ${net}` : ""}
+                  {carries > 0 ? ` · carried ${carries} hole${carries === 1 ? "" : "s"}` : ""}
                 </div>
               </div>
             </div>
