@@ -32,12 +32,40 @@ function BrandFontLoader() {
         overflow-x: hidden;
         max-width: 100%;
       }
+      .match-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      }
+      .match-row .match-row-side {
+        flex-direction: row;
+      }
+      .match-row .match-row-side.side-right {
+        justify-content: flex-start;
+      }
+      .match-row .match-row-side.side-left {
+        justify-content: flex-end;
+      }
+      @media (max-width: 560px) {
+        .match-row {
+          grid-template-columns: 1fr;
+          gap: 8px !important;
+        }
+        .match-row .match-row-side.side-left,
+        .match-row .match-row-side.side-right {
+          justify-content: flex-start !important;
+          text-align: left !important;
+        }
+        .match-row .match-row-side.side-left > div:first-child,
+        .match-row .match-row-side.side-right > div:first-child {
+          text-align: left !important;
+        }
+      }
     `}</style>
   );
 }
 
 const TOURNAMENT_ID = "guyder-cup-2026";
-const POLL_MS = 5000;
+const POLL_MS = 20000;
 
 const TEAM_BOOTH = "Booth";
 const TEAM_FISH = "Fish";
@@ -431,10 +459,13 @@ function LiveDot({ syncing }) {
           transition: "background 0.3s",
         }}
       />
-      {syncing ? "syncing" : "live"}
+      <span style={{ display: "inline-block", minWidth: 46, textAlign: "left" }}>
+        {syncing ? "syncing" : "live"}
+      </span>
     </div>
   );
 }
+What changed: the text now sits in a fixed-width box (minWidth: 46) so swapping between "live" and "syncing" doesn't change how much horizontal space that row takes up — which is what was kicking the header into a different flex-wrap and shoving the score line down every cycle. Combined with the slower poll, that jump should go away almost entirely.Now using credits • Your plan limit resets Friday at 4:50 PM.
 
 function Avatar({ player, size = 32 }) {
   const [errored, setErrored] = useState(false);
@@ -942,17 +973,16 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                   return (
                     <div
                       key={m.id}
+                      className="match-row"
                       style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
                         alignItems: "center",
                         padding: "12px 16px",
                         borderTop: idx === 0 ? "none" : `1px solid ${COLORS.line}`,
                         gap: 12,
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side1" ? 700 : 400 }}>
-                        <div style={{ textAlign: "right", minWidth: 0, overflowWrap: "break-word" }}>
+                      <div className="match-row-side side-left" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side1" ? 700 : 400 }}>
+                        <div style={{ textAlign: "right", minWidth: 0 }}>
                           {m.side1.map((p) => p.name).join(" / ")}
                           {odds && (
                             <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
@@ -987,13 +1017,13 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                           <div style={{ fontSize: 10, color: "#a39c87", marginTop: 2 }}>{state.tee.name} tees</div>
                         )}
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side2" ? 700 : 400 }}>
+                      <div className="match-row-side side-right" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side2" ? 700 : 400 }}>
                         <div style={{ display: "flex", flexShrink: 0 }}>
                           {m.side2.map((p) => (
                             <Avatar key={p.id} player={p} size={28} />
                           ))}
                         </div>
-                        <div style={{ minWidth: 0, overflowWrap: "break-word" }}>
+                        <div style={{ minWidth: 0 }}>
                           {m.side2.map((p) => p.name).join(" / ")}
                           {odds && (
                             <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
@@ -1180,9 +1210,8 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
             <button
               key={m.id}
               onClick={() => onPick(m.id)}
+              className="match-row"
               style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
                 alignItems: "center",
                 gap: 12,
                 padding: "14px 16px",
@@ -1193,10 +1222,11 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
                 fontFamily: SERIF,
                 fontSize: 15,
                 textAlign: "left",
+                width: "100%",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <div style={{ textAlign: "right", minWidth: 0, overflowWrap: "break-word" }}>{m.side1.map((p) => p.name).join(" / ")}</div>
+              <div className="match-row-side side-left" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <div style={{ textAlign: "right", minWidth: 0 }}>{m.side1.map((p) => p.name).join(" / ")}</div>
                 <div style={{ display: "flex", flexShrink: 0 }}>
                   {m.side1.map((p) => (
                     <Avatar key={p.id} player={p} size={26} />
@@ -1207,13 +1237,13 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
                 <div>{state.holesPlayed > 0 ? `thru ${state.holesPlayed}` : "not started"}</div>
                 {state.tee && <div style={{ fontSize: 10 }}>{state.tee.name} tees</div>}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <div className="match-row-side side-right" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <div style={{ display: "flex", flexShrink: 0 }}>
                   {m.side2.map((p) => (
                     <Avatar key={p.id} player={p} size={26} />
                   ))}
                 </div>
-                <div style={{ minWidth: 0, overflowWrap: "break-word" }}>{m.side2.map((p) => p.name).join(" / ")}</div>
+                <div style={{ minWidth: 0 }}>{m.side2.map((p) => p.name).join(" / ")}</div>
               </div>
             </button>
           );
