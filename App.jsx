@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+ import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
 const COLORS = {
@@ -11,6 +11,8 @@ const COLORS = {
   line: "#D8D0BC",
   navy: "#00193A",
   navyDark: "#000F24",
+  teamBooth: "#2563EB",
+  teamFish: "#6B7280",
 };
 
 const SERIF = "'Source Serif Pro', Georgia, 'Times New Roman', serif";
@@ -246,7 +248,7 @@ function matchPlayState(match, round, scores, courses) {
     if (s1 < s2) diff += 1;
     else if (s2 < s1) diff -= 1;
 
-        const remaining = holes - holesPlayed;
+    const remaining = holes - holesPlayed;
     if (!decided && remaining > 0 && Math.abs(diff) > remaining) {
       decided = true;
       decidedAt = holesPlayed;
@@ -953,9 +955,9 @@ export default function GolfTracker() {
 function Scoreline({ totalPoints, winNeeded }) {
   return (
     <div style={{ display: "flex", gap: "clamp(10px, 4vw, 22px)", alignItems: "baseline", flexWrap: "wrap" }}>
-      <TeamScore label="Booth" value={totalPoints.a} color={COLORS.fairway} />
+      <TeamScore label="Booth" value={totalPoints.a} color={COLORS.teamBooth} />
       <div style={{ fontFamily: MONO, fontSize: 12, color: COLORS.tan, whiteSpace: "nowrap" }}>first to {winNeeded}</div>
-      <TeamScore label="Fish" value={totalPoints.b} color={COLORS.flag} />
+      <TeamScore label="Fish" value={totalPoints.b} color={COLORS.teamFish} />
     </div>
   );
 }
@@ -1060,7 +1062,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                       >
                         {state.final ? (
                           <>
-                            <div style={{ fontWeight: 700, color: COLORS.navy }}>
+                            <div style={{ fontWeight: 700, color: state.leader === "side1" ? COLORS.teamBooth : state.leader === "side2" ? COLORS.teamFish : COLORS.navy }}>
                               {(state.leader === "side1" ? m.side1 : state.leader === "side2" ? m.side2 : []).map((p) => p.name).join(" & ")}
                               {state.leader ? " Won" : ""}
                             </div>
@@ -1128,10 +1130,9 @@ function ScoreEntry({
     [myMatch, round, scores, courses]
   );
 
-  function isHoleComplete(h) {
-    if (!myMatch) return false;
-    const allPlayers = [...myMatch.side1, ...myMatch.side2];
-    return allPlayers.every((p) => scores?.[h]?.[p.id] != null);
+  function getHoleResult(h) {
+    if (!myMatch) return { complete: false };
+    return holeResult(myMatch, round, scores, courses, h);
   }
 
   return (
@@ -1238,7 +1239,25 @@ function ScoreEntry({
 
           <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
             {Array.from({ length: round.holes }, (_, h) => {
-              const complete = isHoleComplete(h);
+              const hr = getHoleResult(h);
+              const isSelected = h === holeIdx;
+              let bg = "#fff";
+              let fg = COLORS.ink;
+              if (isSelected) {
+                bg = COLORS.tan;
+                fg = "#fff";
+              } else if (hr.complete) {
+                if (hr.winner === "side1") {
+                  bg = COLORS.teamBooth;
+                  fg = "#fff";
+                } else if (hr.winner === "side2") {
+                  bg = COLORS.teamFish;
+                  fg = "#fff";
+                } else {
+                  bg = "#fff";
+                  fg = COLORS.ink;
+                }
+              }
               return (
                 <button
                   key={h}
@@ -1249,8 +1268,8 @@ function ScoreEntry({
                     fontFamily: MONO,
                     fontSize: 12,
                     border: `1px solid ${COLORS.line}`,
-                    background: h === holeIdx ? COLORS.tan : complete ? COLORS.navy : "#fff",
-                    color: h === holeIdx ? "#fff" : complete ? "#fff" : COLORS.ink,
+                    background: bg,
+                    color: fg,
                     cursor: "pointer",
                     borderRadius: 2,
                   }}
@@ -1552,13 +1571,13 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
       )}
 
       {!complete && (
-        <div style={{ background: "#fff", border: `1px dashed ${COLORS.fairway}`, borderRadius: 3, padding: "16px" }}>
+        <div style={{ background: "#fff", border: `1px dashed ${COLORS.navy}`, borderRadius: 3, padding: "16px" }}>
           <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 12 }}>
             Tap {size === 2 ? "two" : "one"} player{size === 2 ? "s" : ""} from each team to build the next match.
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, marginBottom: 14 }}>
-            <PlayerPicker color={COLORS.fairway} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} />
-            <PlayerPicker color={COLORS.flag} list={unFish} selected={selFish} onToggle={(id) => toggleSelect(selFish, setSelFish, id)} />
+            <PlayerPicker color={COLORS.teamBooth} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} />
+            <PlayerPicker color={COLORS.teamFish} list={unFish} selected={selFish} onToggle={(id) => toggleSelect(selFish, setSelFish, id)} />
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <select
@@ -1926,8 +1945,8 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
           {[
-            { label: "Booth", color: COLORS.fairway, list: boothPlayers },
-            { label: "Fish", color: COLORS.flag, list: fishPlayers },
+            { label: "Booth", color: COLORS.teamBooth, list: boothPlayers },
+            { label: "Fish", color: COLORS.teamFish, list: fishPlayers },
           ].map(({ label, color, list }) => (
             <div key={label}>
               <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.1em", marginBottom: 8, color }}>
