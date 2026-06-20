@@ -857,25 +857,11 @@ export default function GolfTracker() {
               </div>
               <LiveDot syncing={syncing} />
             </div>
-            <h1 style={{ margin: 0, fontSize: 0, lineHeight: 0 }}>
-              <span style={{ fontFamily: SCRIPT, fontSize: "clamp(32px, 11vw, 52px)", color: COLORS.navy, lineHeight: 1.3, display: "inline-block" }}>
-                Guyder
-              </span>
-              <span
-                style={{
-                  display: "block",
-                  fontFamily: MONO,
-                  fontSize: 13,
-                  letterSpacing: "0.3em",
-                  color: COLORS.navy,
-                  textTransform: "uppercase",
-                  marginTop: 14,
-                }}
-
-              >
-                Cup
-              </span>
-            </h1>
+            <img
+              src="/logo.png"
+              alt="The Guyder Cup"
+              style={{ height: "clamp(64px, 18vw, 96px)", display: "block" }}
+            />
           </div>
           <div style={{ textAlign: "right" }}>
             <Scoreline totalPoints={totalPoints} winNeeded={winNeeded} />
