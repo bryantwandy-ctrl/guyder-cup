@@ -74,18 +74,18 @@ const TEAM_FISH = "Fish";
 
 const defaultPlayers = [
   { id: 1, name: "Booth", team: TEAM_BOOTH, index: 17.2, photo: "/photos/booth.jpg" },
-  { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 4.6, photo: null },
+  { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 4.6, photo: "/photos/clinton.jpg" },
   { id: 3, name: "Niemeyer", team: TEAM_BOOTH, index: 8.1, photo: "/photos/niemeyer.jpg" },
   { id: 4, name: "Rams", team: TEAM_BOOTH, index: 11.6, photo: "/photos/rams.jpg" },
   { id: 5, name: "Rio", team: TEAM_BOOTH, index: 11.8, photo: "/photos/rio.jpg" },
   { id: 6, name: "AB", team: TEAM_BOOTH, index: 17.8, photo: "/photos/ab.jpg" },
   { id: 7, name: "Bobby", team: TEAM_BOOTH, index: 20.5, photo: "/photos/bobby.jpg" },
-  { id: 8, name: "J4", team: TEAM_BOOTH, index: 9.6, photo: null },
+  { id: 8, name: "J4", team: TEAM_BOOTH, index: 9.6, photo: "/photos/j4.jpg" },
   { id: 9, name: "Fish", team: TEAM_FISH, index: 3.2, photo: "/photos/fish.jpg" },
   { id: 10, name: "Danny", team: TEAM_FISH, index: 7.5, photo: "/photos/danny.jpg" },
   { id: 11, name: "Rames", team: TEAM_FISH, index: 8.6, photo: "/photos/rames.jpg" },
   { id: 12, name: "Bearman", team: TEAM_FISH, index: 9.4, photo: "/photos/bearman.jpg" },
-  { id: 13, name: "Littel", team: TEAM_FISH, index: 15.6, photo: null },
+  { id: 13, name: "Littel", team: TEAM_FISH, index: 15.6, photo: "/photos/littel.jpg" },
   { id: 14, name: "Larson", team: TEAM_FISH, index: 8.4, photo: "/photos/larson.jpg" },
   { id: 15, name: "Doug", team: TEAM_FISH, index: 23.6, photo: null },
   { id: 16, name: "Meyer", team: TEAM_FISH, index: 20.8, photo: "/photos/meyer.jpg" },
@@ -511,6 +511,7 @@ function Avatar({ player, size = 32 }) {
   const [errored, setErrored] = useState(false);
   const showImg = player?.photo && !errored;
   const initial = player?.name ? player.name.charAt(0).toUpperCase() : "?";
+  const teamColor = player?.team === TEAM_BOOTH ? COLORS.teamBooth : player?.team === TEAM_FISH ? COLORS.teamFish : COLORS.navy;
   return (
     <div
       style={{
@@ -519,7 +520,7 @@ function Avatar({ player, size = 32 }) {
         borderRadius: "50%",
         overflow: "hidden",
         flexShrink: 0,
-        background: COLORS.navy,
+        background: teamColor,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1047,6 +1048,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                     >
                       <div className="match-row-side side-left" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side1" ? 700 : 400 }}>
                         <div style={{ textAlign: "right", minWidth: 0 }}>
+                          {state.leader === "side1" && <span style={{ color: COLORS.teamBooth }}>▲ </span>}
                           {m.side1.map((p) => p.name).join(" / ")}
                           {odds && (
                             <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
@@ -1066,16 +1068,16 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                           fontSize: 13,
                           textAlign: "center",
                           minWidth: 0,
-                          color: state.holesPlayed === 0 ? "#a39c87" : COLORS.ink,
-                          background: COLORS.cream,
-                          border: `1px solid ${COLORS.line}`,
+                          color: state.leader ? "#fff" : state.holesPlayed === 0 ? "#a39c87" : COLORS.ink,
+                          background: state.leader === "side1" ? COLORS.teamBooth : state.leader === "side2" ? COLORS.teamFish : COLORS.cream,
+                          border: `1px solid ${state.leader === "side1" ? COLORS.teamBooth : state.leader === "side2" ? COLORS.teamFish : COLORS.line}`,
                           borderRadius: 3,
                           padding: "4px 8px",
                         }}
                       >
                         {state.final ? (
                           <>
-                            <div style={{ fontWeight: 700, color: state.leader === "side1" ? COLORS.teamBooth : state.leader === "side2" ? COLORS.teamFish : COLORS.navy }}>
+                            <div style={{ fontWeight: 700 }}>
                               {(state.leader === "side1" ? m.side1 : state.leader === "side2" ? m.side2 : []).map((p) => p.name).join(" & ")}
                               {state.leader ? " Won" : ""}
                             </div>
@@ -1088,7 +1090,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                           </div>
                         )}
                         {state.tee && (
-                          <div style={{ fontSize: 10, color: "#a39c87", marginTop: 2 }}>{state.tee.name} tees</div>
+                          <div style={{ fontSize: 10, color: state.leader ? "#fff" : "#a39c87", marginTop: 2 }}>{state.tee.name} tees</div>
                         )}
                       </div>
                       <div className="match-row-side side-right" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side2" ? 700 : 400 }}>
@@ -1104,6 +1106,11 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                               {formatOdds(odds.side2)}
                             </div>
                           )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
                         </div>
                       </div>
                     </div>
@@ -1393,9 +1400,26 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
                   ))}
                 </div>
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", minWidth: 0, textAlign: "center" }}>
-                <div>{state.holesPlayed > 0 ? `Thru ${state.holesPlayed}` : "Not Started"}</div>
-                {state.tee && <div style={{ fontSize: 10 }}>{state.tee.name} tees</div>}
+              <div
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 12,
+                  color: state.leader ? (state.leader === "side1" ? COLORS.teamBooth : COLORS.teamFish) : "#8a8470",
+                  minWidth: 0,
+                  textAlign: "center",
+                  fontWeight: state.leader ? 700 : 400,
+                }}
+              >
+                <div>
+                  {state.final
+                    ? matchResultLabel(state, round.holes)
+                    : state.holesPlayed > 0
+                    ? `${state.label} · Thru ${state.holesPlayed}`
+                    : "Not Started"}
+                </div>
+                {state.tee && (
+                  <div style={{ fontSize: 10, fontWeight: 400, color: "#a39c87" }}>{state.tee.name} tees</div>
+                )}
               </div>
               <div className="match-row-side side-right" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <div style={{ display: "flex", flexShrink: 0 }}>
