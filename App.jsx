@@ -1440,9 +1440,10 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
               background: carried ? "#fff3cd" : "transparent",
               border: carried ? `1px solid ${COLORS.tan}` : "none",
               borderRadius: 3,
+              minWidth: 0,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1, overflow: "hidden" }}>
               <Avatar player={p} size={44} />
               <div>
                 <div style={{ fontWeight: 600 }}>
