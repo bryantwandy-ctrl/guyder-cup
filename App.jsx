@@ -860,7 +860,7 @@ export default function GolfTracker() {
             <img
               src="/logo.png"
               alt="The Guyder Cup"
-              style={{ height: "clamp(64px, 18vw, 96px)", display: "block" }}
+              style={{ height: "clamp(90px, 26vw, 150px)", display: "block" }}
             />
           </div>
           <div style={{ textAlign: "right" }}>
