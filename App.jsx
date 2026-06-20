@@ -1,4 +1,4 @@
- import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
 const COLORS = {
@@ -11,7 +11,7 @@ const COLORS = {
   line: "#D8D0BC",
   navy: "#00193A",
   navyDark: "#000F24",
-  teamBooth: "#2563EB",
+  teamBooth: "#1E3A8A",
   teamFish: "#6B7280",
 };
 
@@ -91,7 +91,7 @@ const defaultPlayers = [
   { id: 16, name: "Meyer", team: TEAM_FISH, index: 20.8, photo: "/photos/meyer.jpg" },
 ];
 
-const alternates = [{ id: 99, name: "Aaron Jackson (17th man)" }];
+const alternates = [];
 
 const playerHistory = {
   1: { fullName: "John Booth", notes: "Member since 2022", overall: { w: 1, l: 3, winPct: 0.25 }, captain: null, matchRecord: { w: 2, l: 10, as: 1, points: 2.5, matches: 13 } },
@@ -103,7 +103,7 @@ const playerHistory = {
   7: { fullName: "Bobby Hogan", notes: "Member since 2018", overall: { w: 3, l: 4, winPct: 0.4286 }, captain: null, matchRecord: { w: 7, l: 4, as: 2, points: 8, matches: 13 } },
   8: { fullName: "John Martin IV", notes: "Founding 8, Captain: 2020 (inferred match - J4)", inferred: true, overall: { w: 5, l: 3, winPct: 0.625 }, captain: null, matchRecord: { w: 4, l: 9, as: 0, points: 4, matches: 13 } },
   9: { fullName: "Tyler Fishbune", notes: "Member since 2022", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 6, l: 7, as: 0, points: 6, matches: 13 } },
-  10: { fullName: "Daniel Jackson", notes: "Founding 8, Captain: 2018 (inferred match - Danny)", inferred: true, overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 8, l: 3, as: 2, points: 9, matches: 13 } },
+  10: { fullName: "Daniel Jackson", notes: "Founding 8, Captain: 2018", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 8, l: 3, as: 2, points: 9, matches: 13 } },
   11: { fullName: "Richard Rames", notes: "Member since 2018", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: null, matchRecord: { w: 7, l: 3, as: 0, points: 7, matches: 10 } },
   12: { fullName: "Jacob Bearman", notes: "Founding 8, Captain: 2017 & 2022, BOD", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 6, l: 6, as: 1, points: 6.5, matches: 13 } },
   13: { fullName: "Chris Littel", notes: "Member since 2025", overall: { w: 0, l: 1, winPct: 0 }, captain: null, matchRecord: { w: 1, l: 2, as: 0, points: 1, matches: 3 } },
@@ -257,7 +257,7 @@ function matchPlayState(match, round, scores, courses) {
   }
 
   let label;
-  if (holesPlayed === 0) label = "Not started";
+  if (holesPlayed === 0) label = "Not Started";
   else if (diff === 0) label = "All Square";
   else label = `${Math.abs(diff)} UP`;
 
@@ -501,7 +501,7 @@ function LiveDot({ syncing }) {
         }}
       />
       <span style={{ display: "inline-block", minWidth: 46, textAlign: "left" }}>
-        {syncing ? "syncing" : "live"}
+        {syncing ? "Syncing" : "Live"}
       </span>
     </div>
   );
@@ -661,6 +661,20 @@ export default function GolfTracker() {
     });
   }
 
+  function clearMatchScores(roundId, playerIds) {
+    setScoresByRound((prev) => {
+      const next = { ...prev };
+      const holesArr = next[roundId].map((h) => {
+        const copy = { ...h };
+        playerIds.forEach((pid) => delete copy[pid]);
+        return copy;
+      });
+      next[roundId] = holesArr;
+      saveJSON(scoresKey(roundId), holesArr);
+      return next;
+    });
+  }
+
   function savePairings(roundId, updated) {
     setPairingsByRound((prev) => ({ ...prev, [roundId]: updated }));
     saveJSON(pairingsKey(roundId), updated).then((res) => {
@@ -709,7 +723,7 @@ export default function GolfTracker() {
           color: COLORS.navy,
         }}
       >
-        loading scores…
+        Loading Scores…
       </div>
     );
   }
@@ -932,6 +946,8 @@ export default function GolfTracker() {
             pairings={pairings}
             savePairings={savePairings}
             courses={courses}
+            scores={scores}
+            clearMatchScores={clearMatchScores}
           />
         )}
 
@@ -982,6 +998,12 @@ function TeamScore({ label, value, color }) {
 }
 
 function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
+  const [collapsed, setCollapsed] = useState({});
+
+  function toggleCollapsed(roundId) {
+    setCollapsed((prev) => ({ ...prev, [roundId]: !prev[roundId] }));
+  }
+
   return (
     <div>
       <SectionLabel>Match Status by Round</SectionLabel>
@@ -989,9 +1011,11 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
         {rounds.map((r) => {
           const matches = matchesByRound[r.id];
           const scores = scoresByRound[r.id] || emptyScores(r.holes);
+          const isCollapsed = !!collapsed[r.id];
           return (
             <div key={r.id} style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
               <div
+                onClick={() => toggleCollapsed(r.id)}
                 style={{
                   padding: "10px 16px",
                   background: COLORS.navy,
@@ -1004,20 +1028,23 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                   justifyContent: "space-between",
                   flexWrap: "wrap",
                   gap: 6,
+                  cursor: "pointer",
                 }}
               >
-                <span>{r.label}</span>
+                <span>{isCollapsed ? "▸" : "▾"} {r.label}</span>
                 <span>
                   {r.format === "bestball" ? "Best Ball · Match Play" : "Singles · Match Play"} · {r.holes} holes ·{" "}
                   {r.course}
                 </span>
               </div>
+              {!isCollapsed && (
               <div>
                 {matches.length === 0 && (
                   <div style={{ padding: "16px", fontFamily: MONO, fontSize: 13, color: "#a39c87" }}>
                     Pairings not yet set for this round.
                   </div>
                 )}
+
                 {matches.map((m, idx) => {
                   const state = matchPlayState(m, r, scores, courses);
                   const odds = matchOdds(m, r, scores, courses);
@@ -1043,7 +1070,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                         </div>
                         <div style={{ display: "flex", flexShrink: 0 }}>
                           {m.side1.map((p) => (
-                            <Avatar key={p.id} player={p} size={28} />
+                            <Avatar key={p.id} player={p} size={36} />
                           ))}
                         </div>
                       </div>
@@ -1071,7 +1098,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                         ) : (
                           <div>
                             {state.label}
-                            {state.holesPlayed > 0 && ` · thru ${state.holesPlayed}`}
+                            {state.holesPlayed > 0 && ` · Thru ${state.holesPlayed}`}
                           </div>
                         )}
                         {state.tee && (
@@ -1081,7 +1108,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                       <div className="match-row-side side-right" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side2" ? 700 : 400 }}>
                         <div style={{ display: "flex", flexShrink: 0 }}>
                           {m.side2.map((p) => (
-                            <Avatar key={p.id} player={p} size={28} />
+                            <Avatar key={p.id} player={p} size={36} />
                           ))}
                         </div>
                         <div style={{ minWidth: 0 }}>
@@ -1097,6 +1124,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                   );
                 })}
               </div>
+              )}
             </div>
           );
         })}
@@ -1125,6 +1153,7 @@ function ScoreEntry({
   const odds = myMatch ? matchOdds(myMatch, round, scores, courses) : null;
   const courseStrokeIndex = courses[round.course]?.strokeIndex;
   const holeHandicap = courseStrokeIndex ? courseStrokeIndex[holeIdx] : null;
+  const myMatchState = myMatch ? matchPlayState(myMatch, round, scores, courses) : null;
   const carryCounts = useMemo(
     () => (myMatch ? matchCarryCounts(myMatch, round, scores, courses) : {}),
     [myMatch, round, scores, courses]
@@ -1193,21 +1222,54 @@ function ScoreEntry({
                   Hole Handicap {holeHandicap}
                 </span>
               )}
+              {myMatchState && (
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color:
+                      myMatchState.leader === "side1"
+                        ? COLORS.teamBooth
+                        : myMatchState.leader === "side2"
+                        ? COLORS.teamFish
+                        : COLORS.navy,
+                    background: COLORS.cream,
+                    border: `1px solid ${
+                      myMatchState.leader === "side1"
+                        ? COLORS.teamBooth
+                        : myMatchState.leader === "side2"
+                        ? COLORS.teamFish
+                        : COLORS.navy
+                    }`,
+                    borderRadius: 3,
+                    padding: "3px 8px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {myMatchState.final
+                    ? matchResultLabel(myMatchState, round.holes)
+                    : myMatchState.label}
+                </span>
+              )}
             </div>
             <button
               onClick={() => setMyMatchId(null)}
               style={{
                 fontFamily: MONO,
-                fontSize: 11,
-                color: COLORS.tan,
-                background: "transparent",
-                border: "none",
+                fontSize: 12,
+                fontWeight: 700,
+                color: COLORS.navy,
+                background: "#fff",
+                border: `1px solid ${COLORS.navy}`,
+                borderRadius: 3,
+                padding: "8px 14px",
                 cursor: "pointer",
-                marginBottom: 10,
                 whiteSpace: "nowrap",
+                textTransform: "uppercase",
               }}
             >
-              switch match
+              Switch Match
             </button>
           </div>
 
@@ -1293,8 +1355,8 @@ function ScoreEntry({
               }}
             >
               {hResult.winner === "halve"
-                ? "Hole halved"
-                : `${(hResult.winner === "side1" ? myMatch.side1 : myMatch.side2).map((p) => p.name).join("/")} win the hole`}
+                ? "Hole Halved"
+                : `${(hResult.winner === "side1" ? myMatch.side1 : myMatch.side2).map((p) => p.name).join("/")} Win the Hole`}
             </div>
           )}
 
@@ -1341,18 +1403,18 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
                 <div style={{ textAlign: "right", minWidth: 0 }}>{m.side1.map((p) => p.name).join(" / ")}</div>
                 <div style={{ display: "flex", flexShrink: 0 }}>
                   {m.side1.map((p) => (
-                    <Avatar key={p.id} player={p} size={26} />
+                    <Avatar key={p.id} player={p} size={34} />
                   ))}
                 </div>
               </div>
               <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", minWidth: 0, textAlign: "center" }}>
-                <div>{state.holesPlayed > 0 ? `thru ${state.holesPlayed}` : "not started"}</div>
+                <div>{state.holesPlayed > 0 ? `Thru ${state.holesPlayed}` : "Not Started"}</div>
                 {state.tee && <div style={{ fontSize: 10 }}>{state.tee.name} tees</div>}
               </div>
               <div className="match-row-side side-right" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <div style={{ display: "flex", flexShrink: 0 }}>
                   {m.side2.map((p) => (
-                    <Avatar key={p.id} player={p} size={26} />
+                    <Avatar key={p.id} player={p} size={34} />
                   ))}
                 </div>
                 <div style={{ minWidth: 0 }}>{m.side2.map((p) => p.name).join(" / ")}</div>
@@ -1395,7 +1457,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Avatar player={p} size={36} />
+              <Avatar player={p} size={44} />
               <div>
                 <div style={{ fontWeight: 600 }}>
                   {p.name}
@@ -1404,41 +1466,64 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                   )}
                   {isLowMan && (
                     <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.tan, marginLeft: 6, textTransform: "uppercase" }}>
-                      low man
+                      Low Man
                     </span>
                   )}
                   {carried && (
                     <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.flag, marginLeft: 6, textTransform: "uppercase" }}>
-                      carried it
+                      Carried It
                     </span>
                   )}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
-                  index {p.index}
-                  {hcp != null ? ` · course hcp ${hcp}` : ""}
-                  {!isLowMan && strokes > 0 ? ` · +${strokes} this hole` : ""}
-                  {net != null && net !== gross ? ` · net ${net}` : ""}
-                  {carries > 0 ? ` · carried ${carries} hole${carries === 1 ? "" : "s"}` : ""}
+                  Index {p.index}
+                  {hcp != null ? ` · Course Hcp ${hcp}` : ""}
+                  {!isLowMan && strokes > 0 ? ` · +${strokes} This Hole` : ""}
+                  {carries > 0 ? ` · Carried ${carries} Hole${carries === 1 ? "" : "s"}` : ""}
                 </div>
               </div>
             </div>
-            <input
-              type="number"
-              min={1}
-              max={15}
-              value={gross ?? ""}
-              onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
-              placeholder="—"
+            <div
               style={{
-                width: 48,
+                display: "flex",
+                alignItems: "center",
                 height: 36,
-                textAlign: "center",
-                fontFamily: MONO,
-                fontSize: 16,
                 border: `1px solid ${COLORS.line}`,
                 borderRadius: 3,
+                overflow: "hidden",
+                background: "#fff",
               }}
-            />
+            >
+              <input
+                type="number"
+                min={1}
+                max={15}
+                value={gross ?? ""}
+                onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
+                placeholder="—"
+                style={{
+                  width: net != null && net !== gross ? 32 : 48,
+                  height: "100%",
+                  textAlign: "center",
+                  fontFamily: MONO,
+                  fontSize: 16,
+                  border: "none",
+                }}
+              />
+              {net != null && net !== gross && (
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 14,
+                    color: COLORS.tan,
+                    padding: "0 8px 0 2px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  /{net}
+                </span>
+              )}
+            </div>
           </div>
         );
       })}
@@ -1446,7 +1531,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
   );
 }
 
-function Pairings({ rounds, activeRound, setActiveRound, round, players, pairings, savePairings, courses }) {
+function Pairings({ rounds, activeRound, setActiveRound, round, players, pairings, savePairings, courses, scores, clearMatchScores }) {
   const size = matchSize(round.format);
   const numMatches = players.length / 2 / size;
   const complete = pairingsComplete(pairings, players, round.format);
@@ -1490,8 +1575,18 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
   }
 
   function removeMatch(matchId) {
+    const match = matches.find((m) => m.id === matchId);
+    const names = match ? [...match.side1, ...match.side2].map((p) => p.name).join(" / ") : "this match";
+    const confirmed = window.confirm(
+      `Remove ${names} from ${round.label}? This will permanently delete any scores already entered for this match in this round.`
+    );
+    if (!confirmed) return;
     const updated = { matches: (pairings?.matches || []).filter((m) => m.id !== matchId) };
     savePairings(round.id, updated);
+    if (match) {
+      const playerIds = [...match.side1, ...match.side2].map((p) => p.id);
+      clearMatchScores(round.id, playerIds);
+    }
   }
 
   function changeTee(matchId, teeId) {
@@ -1535,7 +1630,7 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: SERIF, fontSize: 14, minWidth: 0, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexShrink: 0 }}>
                   {m.side1.map((p) => (
-                    <Avatar key={p.id} player={p} size={26} />
+                    <Avatar key={p.id} player={p} size={34} />
                   ))}
                 </div>
                 {m.side1.map((p) => p.name).join(" / ")}
@@ -1543,7 +1638,7 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                 {m.side2.map((p) => p.name).join(" / ")}
                 <div style={{ display: "flex" }}>
                   {m.side2.map((p) => (
-                    <Avatar key={p.id} player={p} size={26} />
+                    <Avatar key={p.id} player={p} size={34} />
                   ))}
                 </div>
               </div>
@@ -1552,7 +1647,7 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                 onChange={(e) => changeTee(m.id, e.target.value)}
                 style={{ fontFamily: MONO, fontSize: 12, padding: "5px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
               >
-                <option value="">no tee set</option>
+                <option value="">No Tee Set</option>
                 {availableTees.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name} tees
@@ -1563,7 +1658,7 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                 onClick={() => removeMatch(m.id)}
                 style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
               >
-                remove
+                Remove
               </button>
             </div>
           ))}
@@ -1585,7 +1680,7 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
               onChange={(e) => setNewTeeId(e.target.value)}
               style={{ fontFamily: MONO, fontSize: 13, padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
             >
-              <option value="">no tee set</option>
+              <option value="">No Tee Set</option>
               {availableTees.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} tees
@@ -1642,14 +1737,14 @@ function PlayerPicker({ color, list, selected, onToggle }) {
               overflowWrap: "break-word",
             }}
           >
-            <Avatar player={p} size={24} />
+            <Avatar player={p} size={30} />
             <span style={{ minWidth: 0, overflowWrap: "break-word" }}>{p.name}</span>
           </button>
         );
       })}
       {list.length === 0 && (
         <div style={{ fontFamily: MONO, fontSize: 12, color: "#a39c87", padding: "8px 0" }}>
-          everyone's assigned
+          Everyone's Assigned
         </div>
       )}
     </div>
@@ -1685,7 +1780,7 @@ function PlayerStatsModal({ player, onClose }) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Avatar player={player} size={56} />
+            <Avatar player={player} size={64} />
             <h2 style={{ margin: 0, fontFamily: SERIF, fontSize: 24 }}>{player.name}</h2>
           </div>
           <button onClick={onClose} style={{ border: "none", background: "transparent", fontFamily: MONO, fontSize: 13, color: COLORS.tan, cursor: "pointer" }}>
@@ -1983,7 +2078,7 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                         color: COLORS.ink,
                       }}
                     >
-                      <Avatar player={p} size={28} />
+                      <Avatar player={p} size={36} />
                       <span style={{ textDecoration: "underline", textDecorationColor: COLORS.line }}>{p.name}</span>
                     </button>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
