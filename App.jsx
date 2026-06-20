@@ -1111,21 +1111,6 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                     </div>
                   );
                 })}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function ScoreEntry({
   rounds,
   activeRound,
