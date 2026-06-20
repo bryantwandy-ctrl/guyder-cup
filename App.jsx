@@ -246,8 +246,8 @@ function matchPlayState(match, round, scores, courses) {
     if (s1 < s2) diff += 1;
     else if (s2 < s1) diff -= 1;
 
-    const remaining = holes - holesPlayed;
-    if (!decided && Math.abs(diff) > remaining) {
+        const remaining = holes - holesPlayed;
+    if (!decided && remaining > 0 && Math.abs(diff) > remaining) {
       decided = true;
       decidedAt = holesPlayed;
       break;
