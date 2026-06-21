@@ -101,7 +101,7 @@ const playerHistory = {
  5: { fullName: "Mario Scrimenti", notes: "Member since 2018, Captain: 2021 & 2025 (Rio)", inferred: true, overall: { w: 2, l: 5, winPct: 0.2857 }, captain: { w: 2, l: 1, winPct: 0.6667 }, matchRecord: { w: 7, l: 5, as: 1, points: 7.5, matches: 13 } },
   6: { fullName: "Andy Bryant", notes: "Founding 8, Captain: 2019 & 2023 (AB)", overall: { w: 3, l: 5, winPct: 0.375 }, captain: { w: 0, l: 2, winPct: 0 }, matchRecord: { w: 5, l: 8, as: 0, points: 5, matches: 13 } },
   7: { fullName: "Bobby Hogan", notes: "Member since 2018", overall: { w: 3, l: 4, winPct: 0.4286 }, captain: null, matchRecord: { w: 7, l: 4, as: 2, points: 8, matches: 13 } },
-  8: { fullName: "John Martin IV", notes: "Founding 8, Captain: 2020 (inferred match - J4)", inferred: true, overall: { w: 5, l: 3, winPct: 0.625 }, captain: null, matchRecord: { w: 4, l: 9, as: 0, points: 4, matches: 13 } },
+  8: { fullName: "John Martin IV", notes: "Founding 8, Captain: 2020", overall: { w: 5, l: 3, winPct: 0.625 }, captain: null, matchRecord: { w: 4, l: 9, as: 0, points: 4, matches: 13 } },
   9: { fullName: "Tyler Fishbune", notes: "Member since 2022", overall: { w: 2, l: 2, winPct: 0.5 }, captain: null, matchRecord: { w: 6, l: 7, as: 0, points: 6, matches: 13 } },
   10: { fullName: "Daniel Jackson", notes: "Founding 8, Captain: 2018", overall: { w: 4, l: 4, winPct: 0.5 }, captain: { w: 1, l: 1, winPct: 0.5 }, matchRecord: { w: 8, l: 3, as: 2, points: 9, matches: 13 } },
   11: { fullName: "Richard Rames", notes: "Member since 2018", overall: { w: 4, l: 2, winPct: 0.6667 }, captain: null, matchRecord: { w: 7, l: 3, as: 0, points: 7, matches: 10 } },
@@ -278,6 +278,8 @@ function matchPlayState(match, round, scores, courses) {
     holesPlayed,
     label: decided ? `${label} (won thru ${decidedAt})` : label,
     final,
+    decided,
+    decidedAt,
     points1,
     points2,
     leader: diff > 0 ? "side1" : diff < 0 ? "side2" : null,
@@ -509,9 +511,11 @@ function LiveDot({ syncing }) {
 
 function Avatar({ player, size = 32 }) {
   const [errored, setErrored] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const showImg = player?.photo && !errored;
   const initial = player?.name ? player.name.charAt(0).toUpperCase() : "?";
-  const teamColor = player?.team === TEAM_BOOTH ? COLORS.teamBooth : player?.team === TEAM_FISH ? COLORS.teamFish : COLORS.navy;
+  const teamColor =
+    player?.team === TEAM_BOOTH ? COLORS.teamBooth : player?.team === TEAM_FISH ? COLORS.teamFish : COLORS.navy;
   return (
     <div
       style={{
@@ -525,26 +529,35 @@ function Avatar({ player, size = 32 }) {
         alignItems: "center",
         justifyContent: "center",
         border: `1px solid ${COLORS.line}`,
+        position: "relative",
       }}
     >
-      {showImg ? (
+      <span
+        style={{
+          fontFamily: MONO,
+          color: COLORS.cream,
+          fontSize: size * 0.4,
+          fontWeight: 700,
+          position: "absolute",
+          opacity: showImg && imgLoaded ? 0 : 1,
+        }}
+      >
+        {initial}
+      </span>
+      {showImg && (
         <img
           src={player.photo}
           alt={player.name}
+          onLoad={() => setImgLoaded(true)}
           onError={() => setErrored(true)}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      ) : (
-        <span
           style={{
-            fontFamily: MONO,
-            color: COLORS.cream,
-            fontSize: size * 0.4,
-            fontWeight: 700,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            opacity: imgLoaded ? 1 : 0,
+            position: "relative",
           }}
-        >
-          {initial}
-        </span>
+        />
       )}
     </div>
   );
@@ -835,16 +848,15 @@ export default function GolfTracker() {
         <div
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            gap: 12,
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 14,
             borderBottom: `3px solid ${COLORS.navy}`,
             paddingBottom: 14,
           }}
         >
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap", justifyContent: "center" }}>
               <div
                 style={{
                   fontFamily: MONO,
@@ -864,7 +876,7 @@ export default function GolfTracker() {
               style={{ height: "clamp(90px, 26vw, 150px)", display: "block" }}
             />
           </div>
-          <div style={{ textAlign: "right" }}>
+          <div style={{ textAlign: "center" }}>
             <Scoreline totalPoints={totalPoints} winNeeded={winNeeded} />
           </div>
         </div>
@@ -959,7 +971,7 @@ function Scoreline({ totalPoints, winNeeded }) {
   return (
     <div style={{ display: "flex", gap: "clamp(10px, 4vw, 22px)", alignItems: "baseline", flexWrap: "wrap" }}>
       <TeamScore label="Booth" value={totalPoints.a} color={COLORS.teamBooth} />
-      <div style={{ fontFamily: MONO, fontSize: 12, color: COLORS.tan, whiteSpace: "nowrap" }}>first to {winNeeded}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: COLORS.tan, whiteSpace: "nowrap" }}>First to {winNeeded}</div>
       <TeamScore label="Fish" value={totalPoints.b} color={COLORS.teamFish} />
     </div>
   );
@@ -1100,6 +1112,7 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                           ))}
                         </div>
                         <div style={{ minWidth: 0 }}>
+                          {state.leader === "side2" && <span style={{ color: COLORS.teamFish }}>▲ </span>}
                           {m.side2.map((p) => p.name).join(" / ")}
                           {odds && (
                             <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87", fontWeight: 400 }}>
@@ -1111,6 +1124,16 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                     </div>
                   );
                 })}
+              </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ScoreEntry({
   rounds,
   activeRound,
@@ -1488,6 +1511,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                 borderRadius: 3,
                 overflow: "hidden",
                 background: "#fff",
+                flexShrink: 0,
               }}
             >
               <input
@@ -1498,7 +1522,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                 onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
                 placeholder="—"
                 style={{
-                  width: net != null && net !== gross ? 32 : 48,
+                  width: net != null && net !== gross ? 28 : 48,
                   height: "100%",
                   textAlign: "center",
                   fontFamily: MONO,
@@ -1512,7 +1536,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                     fontFamily: MONO,
                     fontSize: 14,
                     color: COLORS.tan,
-                    padding: "0 8px 0 2px",
+                    padding: "0 6px 0 0",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -2168,12 +2192,15 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                     <div key={h} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                       <span style={{ fontFamily: MONO, fontSize: 10, color: "#8a8470" }}>Hole {h + 1}</span>
                       <input
-                        type="number"
-                        min={1}
-                        max={18}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         disabled={!isEditing}
                         value={course.strokeIndex?.[h] ?? ""}
-                        onChange={(e) => updateStrokeIndex(courseName, h, e.target.value)}
+                        onChange={(e) => {
+                          const cleaned = e.target.value.replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
+                          updateStrokeIndex(courseName, h, cleaned);
+                        }}
                         style={{
                           ...lockedInputStyle,
                           width: 48,
