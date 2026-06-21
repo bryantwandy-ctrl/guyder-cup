@@ -61,6 +61,9 @@ function BrandFontLoader() {
         .match-row .match-row-side.side-right > div:first-child {
           text-align: left !important;
         }
+        .roster-grid {
+          grid-template-columns: 1fr !important;
+        }
       }
     `}</style>
   );
@@ -409,6 +412,9 @@ function playersKey() {
 function roundsKey() {
   return `${TOURNAMENT_ID}:rounds`;
 }
+function confirmedKey(roundId) {
+  return `${TOURNAMENT_ID}:confirmed:round-${roundId}`;
+}
 
 async function loadJSON(key, fallback) {
   try {
@@ -580,6 +586,11 @@ export default function GolfTracker() {
     defaultRounds.forEach((r) => (init[r.id] = emptyPairings()));
     return init;
   });
+  const [confirmedByRound, setConfirmedByRound] = useState(() => {
+    const init = {};
+    defaultRounds.forEach((r) => (init[r.id] = []));
+    return init;
+  });
   const [loaded, setLoaded] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -599,9 +610,11 @@ export default function GolfTracker() {
       const loadedRounds = await loadJSON(roundsKey(), defaultRounds);
       const nextScores = {};
       const nextPairings = {};
+      const nextConfirmed = {};
       for (const r of loadedRounds) {
         nextScores[r.id] = await loadJSON(scoresKey(r.id), emptyScores(r.holes));
         nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings());
+        nextConfirmed[r.id] = await loadJSON(confirmedKey(r.id), []);
       }
       const loadedCourses = await loadJSON(coursesKey(), defaultCourses);
       const loadedPlayers = await loadJSON(playersKey(), defaultPlayers);
@@ -609,6 +622,7 @@ export default function GolfTracker() {
         setRounds(loadedRounds);
         setScoresByRound(nextScores);
         setPairingsByRound(nextPairings);
+        setConfirmedByRound(nextConfirmed);
         setCourses(loadedCourses);
         setPlayers(loadedPlayers);
         setLoaded(true);
@@ -627,15 +641,18 @@ export default function GolfTracker() {
       const loadedRounds = await loadJSON(roundsKey(), defaultRounds);
       const nextScores = {};
       const nextPairings = {};
+      const nextConfirmed = {};
       for (const r of loadedRounds) {
         nextScores[r.id] = await loadJSON(scoresKey(r.id), emptyScores(r.holes));
         nextPairings[r.id] = await loadJSON(pairingsKey(r.id), emptyPairings());
+        nextConfirmed[r.id] = await loadJSON(confirmedKey(r.id), []);
       }
       const loadedCourses = await loadJSON(coursesKey(), defaultCourses);
       const loadedPlayers = await loadJSON(playersKey(), defaultPlayers);
       setRounds(loadedRounds);
       setScoresByRound(nextScores);
       setPairingsByRound(nextPairings);
+      setConfirmedByRound(nextConfirmed);
       setCourses(loadedCourses);
       setPlayers(loadedPlayers);
       setSyncing(false);
@@ -694,6 +711,25 @@ export default function GolfTracker() {
     saveJSON(pairingsKey(roundId), updated).then((res) => {
       if (!res.ok) setSaveError(`Couldn't save pairings: ${res.error}`);
       else setSaveError(null);
+    });
+  }
+
+  function confirmMatch(roundId, matchId) {
+    setConfirmedByRound((prev) => {
+      const current = prev[roundId] || [];
+      if (current.includes(matchId)) return prev;
+      const updated = { ...prev, [roundId]: [...current, matchId] };
+      saveJSON(confirmedKey(roundId), updated[roundId]);
+      return updated;
+    });
+  }
+
+  function unconfirmMatch(roundId, matchId) {
+    setConfirmedByRound((prev) => {
+      const current = prev[roundId] || [];
+      const updated = { ...prev, [roundId]: current.filter((id) => id !== matchId) };
+      saveJSON(confirmedKey(roundId), updated[roundId]);
+      return updated;
     });
   }
 
@@ -917,7 +953,7 @@ export default function GolfTracker() {
 
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
         {tab === "leaderboard" && (
-          <Leaderboard rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} courses={courses} />
+          <Leaderboard rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} courses={courses} confirmedByRound={confirmedByRound} />
         )}
 
         {tab === "score" && (
@@ -932,6 +968,9 @@ export default function GolfTracker() {
             myMatchId={myMatchId}
             setMyMatchId={setMyMatchId}
             courses={courses}
+            confirmedMatches={confirmedByRound[round.id] || []}
+            confirmMatch={confirmMatch}
+            unconfirmMatch={unconfirmMatch}
           />
         )}
 
@@ -996,7 +1035,7 @@ function TeamScore({ label, value, color }) {
   );
 }
 
-function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
+function Leaderboard({ rounds, matchesByRound, scoresByRound, courses, confirmedByRound }) {
   const [collapsed, setCollapsed] = useState({});
 
   function toggleCollapsed(roundId) {
@@ -1010,7 +1049,9 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
         {rounds.map((r) => {
           const matches = matchesByRound[r.id];
           const scores = scoresByRound[r.id] || emptyScores(r.holes);
-          const isCollapsed = !!collapsed[r.id];
+          const confirmedIds = confirmedByRound?.[r.id] || [];
+          const allConfirmed = matches.length > 0 && matches.every((m) => confirmedIds.includes(m.id));
+          const isCollapsed = collapsed[r.id] !== undefined ? collapsed[r.id] : allConfirmed;
           return (
             <div key={r.id} style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
               <div
@@ -1030,7 +1071,10 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses }) {
                   cursor: "pointer",
                 }}
               >
-                <span>{isCollapsed ? "▸" : "▾"} {r.label}</span>
+                <span>
+                  {isCollapsed ? "▸" : "▾"} {r.label}
+                  {allConfirmed && <span style={{ marginLeft: 8, color: "#7fcf9a" }}>✓ Final</span>}
+                </span>
                 <span>
                   {r.format === "bestball" ? "Best Ball · Match Play" : "Singles · Match Play"} · {r.holes} holes ·{" "}
                   {r.course}
@@ -1145,6 +1189,9 @@ function ScoreEntry({
   myMatchId,
   setMyMatchId,
   courses,
+  confirmedMatches,
+  confirmMatch,
+  unconfirmMatch,
 }) {
   const [holeIdx, setHoleIdx] = useState(0);
   const myMatch = matches.find((m) => m.id === myMatchId);
@@ -1155,6 +1202,7 @@ function ScoreEntry({
   const courseStrokeIndex = courses[round.course]?.strokeIndex;
   const holeHandicap = courseStrokeIndex ? courseStrokeIndex[holeIdx] : null;
   const myMatchState = myMatch ? matchPlayState(myMatch, round, scores, courses) : null;
+  const isConfirmed = myMatch ? confirmedMatches.includes(myMatch.id) : false;
   const carryCounts = useMemo(
     () => (myMatch ? matchCarryCounts(myMatch, round, scores, courses) : {}),
     [myMatch, round, scores, courses]
@@ -1229,13 +1277,13 @@ function ScoreEntry({
                     fontFamily: MONO,
                     fontSize: 13,
                     fontWeight: 700,
-                    color:
+                    color: myMatchState.leader ? "#fff" : COLORS.navy,
+                    background:
                       myMatchState.leader === "side1"
                         ? COLORS.teamBooth
                         : myMatchState.leader === "side2"
                         ? COLORS.teamFish
-                        : COLORS.navy,
-                    background: COLORS.cream,
+                        : COLORS.cream,
                     border: `1px solid ${
                       myMatchState.leader === "side1"
                         ? COLORS.teamBooth
@@ -1361,6 +1409,55 @@ function ScoreEntry({
             </div>
           )}
 
+          {myMatchState && myMatchState.final && (
+            <div
+              style={{
+                fontFamily: MONO,
+                fontSize: 13,
+                marginBottom: 14,
+                padding: "10px 14px",
+                background: isConfirmed ? "#eaf6ec" : "#fff3cd",
+                border: `1px solid ${isConfirmed ? "#4f9d6e" : COLORS.tan}`,
+                borderRadius: 3,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              {isConfirmed ? (
+                <span style={{ color: "#2f6e47", fontWeight: 700 }}>
+                  ✓ Final score confirmed — {matchResultLabel(myMatchState, round.holes)}
+                </span>
+              ) : (
+                <>
+                  <span>
+                    Final score: <strong>{matchResultLabel(myMatchState, round.holes)}</strong> — confirm to mark this match done?
+                  </span>
+                  <button
+                    onClick={() => confirmMatch(round.id, myMatch.id)}
+                    style={{
+                      fontFamily: MONO,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#fff",
+                      background: COLORS.navy,
+                      border: "none",
+                      borderRadius: 3,
+                      padding: "8px 14px",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Confirm Final Score
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px" }}>
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
               <MatchSidePlayers players={myMatch.side1} holeIdx={holeIdx} scores={scores} round={round} updateScore={updateScore} tee={tee} courseStrokeIndex={courses[round.course]?.strokeIndex} lowestHcp={lowestHcp} carriedBy={hResult.carriedBy} carryCounts={carryCounts} />
@@ -1412,7 +1509,11 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
                 style={{
                   fontFamily: MONO,
                   fontSize: 12,
-                  color: state.leader ? (state.leader === "side1" ? COLORS.teamBooth : COLORS.teamFish) : "#8a8470",
+                  color: state.leader ? "#fff" : "#8a8470",
+                  background: state.leader === "side1" ? COLORS.teamBooth : state.leader === "side2" ? COLORS.teamFish : "transparent",
+                  border: state.leader ? "none" : `1px solid ${COLORS.line}`,
+                  borderRadius: 3,
+                  padding: "4px 8px",
                   minWidth: 0,
                   textAlign: "center",
                   fontWeight: state.leader ? 700 : 400,
@@ -1426,7 +1527,7 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
                     : "Not Started"}
                 </div>
                 {state.tee && (
-                  <div style={{ fontSize: 10, fontWeight: 400, color: "#a39c87" }}>{state.tee.name} tees</div>
+                  <div style={{ fontSize: 10, fontWeight: 400, color: state.leader ? "#fff" : "#a39c87" }}>{state.tee.name} tees</div>
                 )}
               </div>
               <div className="match-row-side side-right" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -2058,12 +2159,12 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
           handicap, stroke allowance, and live match result recalculates from this number
           automatically, no redeploy needed.
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
+        <div className="roster-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
           {[
             { label: "Booth", color: COLORS.teamBooth, list: boothPlayers },
             { label: "Fish", color: COLORS.teamFish, list: fishPlayers },
           ].map(({ label, color, list }) => (
-            <div key={label}>
+            <div key={label} style={{ minWidth: 0 }}>
               <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.1em", marginBottom: 8, color }}>
                 TEAM {label.toUpperCase()}
               </div>
@@ -2081,6 +2182,8 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                       padding: "6px 10px",
                       fontFamily: MONO,
                       fontSize: 12,
+                      minWidth: 0,
+                      overflow: "hidden",
                     }}
                   >
                     <button
@@ -2096,12 +2199,16 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                         padding: 0,
                         cursor: "pointer",
                         color: COLORS.ink,
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: "hidden",
+                        marginRight: 8,
                       }}
                     >
                       <Avatar player={p} size={36} />
-                      <span style={{ textDecoration: "underline", textDecorationColor: COLORS.line }}>{p.name}</span>
+                      <span style={{ textDecoration: "underline", textDecorationColor: COLORS.line, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                     </button>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <span style={{ color: "#8a8470" }}>index</span>
                       <input
                         type="number"
@@ -2111,13 +2218,14 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                         onChange={(e) => updatePlayerIndex(p.id, e.target.value)}
                         style={{
                           ...lockedInputStyle,
-                          width: 56,
+                          width: 48,
                           fontFamily: MONO,
                           fontSize: 13,
                           border: `1px solid ${COLORS.line}`,
                           borderRadius: 3,
-                          padding: "4px 6px",
+                          padding: "4px 4px",
                           textAlign: "center",
+                          flexShrink: 0,
                         }}
                       />
                     </div>
