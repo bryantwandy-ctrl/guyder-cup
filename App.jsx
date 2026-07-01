@@ -90,7 +90,7 @@ const defaultPlayers = [
   { id: 12, name: "Bearman", team: TEAM_FISH, index: 9.4, photo: "/photos/bearman.jpg" },
   { id: 13, name: "Littel", team: TEAM_FISH, index: 15.6, photo: "/photos/littel.jpg" },
   { id: 14, name: "Larson", team: TEAM_FISH, index: 8.4, photo: "/photos/larson.jpg" },
-  { id: 15, name: "Doug", team: TEAM_FISH, index: 23.6, photo: null },
+  { id: 15, name: "Doug", team: TEAM_FISH, index: 23.6, photo: "/photos/doug.jpg" },
   { id: 16, name: "Meyer", team: TEAM_FISH, index: 20.8, photo: "/photos/meyer.jpg" },
 ];
 
@@ -1042,9 +1042,32 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses, confirmed
     setCollapsed((prev) => ({ ...prev, [roundId]: !prev[roundId] }));
   }
 
+  const liveMatchCount = useMemo(() => {
+    let count = 0;
+    rounds.forEach((r) => {
+      const matches = matchesByRound[r.id];
+      const scores = scoresByRound[r.id] || emptyScores(r.holes);
+      matches.forEach((m) => {
+        const state = matchPlayState(m, r, scores, courses);
+        if (state.holesPlayed > 0 && !state.final) count++;
+      });
+    });
+    return count;
+  }, [rounds, matchesByRound, scoresByRound, courses]);
+
   return (
     <div>
-      <SectionLabel>Match Status by Round</SectionLabel>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 8 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: COLORS.tan }}>
+          Match Status by Round
+        </div>
+        {liveMatchCount > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, color: "#4f9d6e", letterSpacing: "0.08em" }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4f9d6e", display: "inline-block" }} />
+            {liveMatchCount} match{liveMatchCount === 1 ? "" : "es"} live
+          </div>
+        )}
+      </div>
       <div style={{ display: "grid", gap: 18 }}>
         {rounds.map((r) => {
           const matches = matchesByRound[r.id];
@@ -1579,7 +1602,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
             <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1, overflow: "hidden" }}>
               <Avatar player={p} size={44} />
               <div>
-                <div style={{ fontWeight: 600 }}>
+                <div style={{ fontWeight: 600, color: COLORS.ink }}>
                   {p.name}
                   {total != null && (
                     <span style={{ fontFamily: MONO, fontWeight: 400, color: "#8a8470" }}> ({total})</span>
