@@ -416,6 +416,75 @@ function confirmedKey(roundId) {
   return `${TOURNAMENT_ID}:confirmed:round-${roundId}`;
 }
 
+
+// ─── Skins constants ─────────────────────────────────────────────────────────
+const SKINS_ID = "guyder-skins-26";
+
+const defaultSkinsPlayers = defaultPlayers.map((p) => ({ ...p }));
+
+const defaultSkinsGroups = [
+  { id: "sg-1", name: "Group 1", playerIds: [1,  2,  3,  4],  scorekeeperId: 1  },
+  { id: "sg-2", name: "Group 2", playerIds: [5,  6,  7,  8],  scorekeeperId: 5  },
+  { id: "sg-3", name: "Group 3", playerIds: [9,  10, 11, 12], scorekeeperId: 9  },
+  { id: "sg-4", name: "Group 4", playerIds: [13, 14, 15, 16], scorekeeperId: 13 },
+];
+
+const defaultSkinsSettings = {
+  buyIn: 20,
+  course: "Highlands",
+  teeId: "h-i",
+};
+
+// ─── Skins key functions ──────────────────────────────────────────────────────
+function skinsScoresKey()   { return `${SKINS_ID}:scores`; }
+function skinsGroupsKey()   { return `${SKINS_ID}:groups`; }
+function skinsSettingsKey() { return `${SKINS_ID}:settings`; }
+function skinsPlayersKey()  { return `${SKINS_ID}:players`; }
+
+// ─── Skins calculation ────────────────────────────────────────────────────────
+function lowestHandicapAmong(players, tee) {
+  const hcps = players.map((p) => courseHandicap(p.index, tee)).filter((h) => h != null);
+  if (hcps.length === 0) return 0;
+  return Math.min(...hcps);
+}
+
+function calcSkins(players, scores, tee, courseStrokeIndex, holes) {
+  if (!tee) return Array.from({ length: holes }, (_, h) => ({ hole: h, grossWinner: null, netWinner: null, entries: [] }));
+  const lowestHcp = lowestHandicapAmong(players, tee);
+  const results = [];
+  for (let h = 0; h < holes; h++) {
+    const entries = players.map((p) => {
+      const gross = scores?.[h]?.[p.id] ?? null;
+      let net = null;
+      if (gross != null) {
+        const strokes = strokesReceived(p, tee, courseStrokeIndex, lowestHcp, h);
+        net = gross - strokes;
+      }
+      return { player: p, gross, net };
+    });
+    const validGross = entries.filter((e) => e.gross != null);
+    let grossWinner = null;
+    if (validGross.length > 0) {
+      const minGross = Math.min(...validGross.map((e) => e.gross));
+      const tied = validGross.filter((e) => e.gross === minGross);
+      if (tied.length === 1) grossWinner = tied[0].player;
+    }
+    const validNet = entries.filter((e) => e.net != null);
+    let netWinner = null;
+    if (validNet.length > 0) {
+      const minNet = Math.min(...validNet.map((e) => e.net));
+      const tied = validNet.filter((e) => e.net === minNet);
+      if (tied.length === 1) {
+        const candidate = tied[0].player;
+        if (!grossWinner || candidate.id !== grossWinner.id) netWinner = candidate;
+      }
+    }
+    results.push({ hole: h, grossWinner, netWinner, entries });
+  }
+  return results;
+}
+
+
 async function loadJSON(key, fallback) {
   try {
     const { data, error } = await supabase
@@ -596,6 +665,13 @@ export default function GolfTracker() {
   const [saveError, setSaveError] = useState(null);
   const [takeoverDismissed, setTakeoverDismissed] = useState(false);
 
+  // Skins state
+  const [skinsPlayers, setSkinsPlayers]   = useState(defaultSkinsPlayers);
+  const [skinsGroups, setSkinsGroups]     = useState(defaultSkinsGroups);
+  const [skinsSettings, setSkinsSettings] = useState(defaultSkinsSettings);
+  const [skinsScores, setSkinsScores]     = useState(() => emptyScores(18));
+  const [skinsLoaded, setSkinsLoaded]     = useState(false);
+
   const matchesByRound = useMemo(() => {
     const m = {};
     rounds.forEach((r) => {
@@ -659,6 +735,36 @@ export default function GolfTracker() {
     }, POLL_MS);
     return () => clearInterval(interval);
   }, [loaded]);
+
+  // Load skins data on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const sp = await loadJSON(skinsPlayersKey(), defaultSkinsPlayers);
+      const sg = await loadJSON(skinsGroupsKey(),  defaultSkinsGroups);
+      const ss = await loadJSON(skinsSettingsKey(), defaultSkinsSettings);
+      const sc = await loadJSON(skinsScoresKey(),  emptyScores(18));
+      if (!cancelled) {
+        setSkinsPlayers(sp); setSkinsGroups(sg);
+        setSkinsSettings(ss); setSkinsScores(sc); setSkinsLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Poll skins data
+  useEffect(() => {
+    if (!skinsLoaded) return;
+    const interval = setInterval(async () => {
+      const sp = await loadJSON(skinsPlayersKey(), defaultSkinsPlayers);
+      const sg = await loadJSON(skinsGroupsKey(),  defaultSkinsGroups);
+      const ss = await loadJSON(skinsSettingsKey(), defaultSkinsSettings);
+      const sc = await loadJSON(skinsScoresKey(),  emptyScores(18));
+      setSkinsPlayers(sp); setSkinsGroups(sg); setSkinsSettings(ss); setSkinsScores(sc);
+    }, POLL_MS);
+    return () => clearInterval(interval);
+  }, [skinsLoaded]);
 
   const totalPoints = useMemo(() => {
     let a = 0,
@@ -754,13 +860,26 @@ export default function GolfTracker() {
     });
   }
 
+  // Skins save functions
+  function saveSkinsPlayers(updated)  { setSkinsPlayers(updated);  saveJSON(skinsPlayersKey(),  updated); }
+  function saveSkinsGroups(updated)   { setSkinsGroups(updated);   saveJSON(skinsGroupsKey(),   updated); }
+  function saveSkinsSettings(updated) { setSkinsSettings(updated); saveJSON(skinsSettingsKey(), updated); }
+  function updateSkinsScore(holeIdx, playerId, value) {
+    setSkinsScores((prev) => {
+      const next = prev.map((h) => ({ ...h }));
+      next[holeIdx][playerId] = value === "" ? undefined : parseInt(value, 10);
+      saveJSON(skinsScoresKey(), next);
+      return next;
+    });
+  }
+
   const round = rounds[activeRound];
   const matches = matchesByRound[round.id];
   const scores = scoresByRound[round.id];
   const pairings = pairingsByRound[round.id];
   const winNeeded = totalPoints.possible / 2 + 0.5;
 
-  if (!loaded) {
+  if (!loaded || !skinsLoaded) {
     return (
       <div
         style={{
@@ -931,6 +1050,9 @@ export default function GolfTracker() {
         <TabButton active={tab === "setup"} onClick={() => setTab("setup")}>
           Format & Players
         </TabButton>
+        <TabButton active={tab === "skins"} onClick={() => setTab("skins")}>
+          Skins
+        </TabButton>
       </div>
 
       {saveError && (
@@ -998,6 +1120,15 @@ export default function GolfTracker() {
             alternates={alternates}
             courses={courses}
             saveCourses={saveCourses}
+          />
+        )}
+        {tab === "skins" && (
+          <SkinsTab
+            skinsPlayers={skinsPlayers}   saveSkinsPlayers={saveSkinsPlayers}
+            skinsGroups={skinsGroups}     saveSkinsGroups={saveSkinsGroups}
+            skinsSettings={skinsSettings} saveSkinsSettings={saveSkinsSettings}
+            skinsScores={skinsScores}     updateSkinsScore={updateSkinsScore}
+            courses={courses}
           />
         )}
       </div>
@@ -2385,3 +2516,456 @@ function LabeledNumber({ label, value, step, onChange, disabled }) {
     </div>
   );
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SKINS TAB — entirely separate from Guyder scoring
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function SkinsTab({ skinsPlayers, saveSkinsPlayers, skinsGroups, saveSkinsGroups, skinsSettings, saveSkinsSettings, skinsScores, updateSkinsScore, courses }) {
+  const [subTab, setSubTab] = useState("dashboard");
+  const [activeGroupId, setActiveGroupId] = useState(skinsGroups[0]?.id || null);
+
+  const tee = findTee(courses, skinsSettings.course, skinsSettings.teeId);
+  const courseStrokeIndex = courses[skinsSettings.course]?.strokeIndex;
+
+  const skinResults = useMemo(
+    () => calcSkins(skinsPlayers, skinsScores, tee, courseStrokeIndex, 18),
+    [skinsPlayers, skinsScores, tee, courseStrokeIndex]
+  );
+
+  const totalGrossSkins = skinResults.filter((r) => r.grossWinner).length;
+  const totalNetSkins   = skinResults.filter((r) => r.netWinner).length;
+  const totalSkins      = totalGrossSkins + totalNetSkins;
+  const totalPot        = skinsPlayers.length * (skinsSettings.buyIn || 20);
+  const skinValue       = totalSkins > 0 ? totalPot / totalSkins : 0;
+
+  const playerSkinCounts = useMemo(() => {
+    const counts = {};
+    skinsPlayers.forEach((p) => { counts[p.id] = { gross: 0, net: 0 }; });
+    skinResults.forEach((r) => {
+      if (r.grossWinner) counts[r.grossWinner.id].gross++;
+      if (r.netWinner)   counts[r.netWinner.id].net++;
+    });
+    return counts;
+  }, [skinResults, skinsPlayers]);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 6 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.22em", color: COLORS.tan, textTransform: "uppercase", marginBottom: 4 }}>
+          Guyder Skins '26
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
+          {skinsPlayers.length} players · ${skinsSettings.buyIn || 20} buy-in · ${totalPot} pot · {skinsSettings.course}{tee ? `, ${tee.name} tees` : ""}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 14 }}>
+        <TabButton active={subTab === "dashboard"}   onClick={() => setSubTab("dashboard")}>Skins</TabButton>
+        <TabButton active={subTab === "scores"}      onClick={() => setSubTab("scores")}>Enter Scores</TabButton>
+        <TabButton active={subTab === "leaderboard"} onClick={() => setSubTab("leaderboard")}>Leaderboard</TabButton>
+        <TabButton active={subTab === "setup"}       onClick={() => setSubTab("setup")}>Setup</TabButton>
+      </div>
+
+      {subTab === "dashboard" && (
+        <SkinsDashboard
+          skinResults={skinResults} skinsPlayers={skinsPlayers}
+          playerSkinCounts={playerSkinCounts} totalPot={totalPot}
+          skinValue={skinValue} totalGrossSkins={totalGrossSkins}
+          totalNetSkins={totalNetSkins} totalSkins={totalSkins}
+        />
+      )}
+      {subTab === "scores" && (
+        <SkinsScoreEntry
+          skinsPlayers={skinsPlayers} skinsGroups={skinsGroups}
+          skinsScores={skinsScores} updateSkinsScore={updateSkinsScore}
+          tee={tee} courseStrokeIndex={courseStrokeIndex}
+          activeGroupId={activeGroupId} setActiveGroupId={setActiveGroupId}
+          skinsSettings={skinsSettings}
+        />
+      )}
+      {subTab === "leaderboard" && (
+        <SkinsLeaderboard
+          skinsPlayers={skinsPlayers} skinsScores={skinsScores}
+          tee={tee} courseStrokeIndex={courseStrokeIndex} skinsSettings={skinsSettings}
+        />
+      )}
+      {subTab === "setup" && (
+        <SkinsSetup
+          skinsPlayers={skinsPlayers} saveSkinsPlayers={saveSkinsPlayers}
+          skinsGroups={skinsGroups} saveSkinsGroups={saveSkinsGroups}
+          skinsSettings={skinsSettings} saveSkinsSettings={saveSkinsSettings}
+          courses={courses}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Skins Dashboard ──────────────────────────────────────────────────────────
+function SkinsDashboard({ skinResults, skinsPlayers, playerSkinCounts, totalPot, skinValue, totalGrossSkins, totalNetSkins, totalSkins }) {
+  const leaders = skinsPlayers
+    .map((p) => {
+      const c = playerSkinCounts[p.id] || { gross: 0, net: 0 };
+      const total = c.gross + c.net;
+      return { player: p, ...c, total, payout: total * skinValue };
+    })
+    .filter((e) => e.total > 0)
+    .sort((a, b) => b.total - a.total);
+
+  return (
+    <div style={{ display: "grid", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
+        {[
+          { label: "Total Pot",   value: `$${totalPot}` },
+          { label: "Gross Skins", value: totalGrossSkins },
+          { label: "Net Skins",   value: totalNetSkins },
+          { label: "Skin Value",  value: totalSkins > 0 ? `$${skinValue.toFixed(2)}` : "—" },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "12px 14px", textAlign: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8a8470", marginBottom: 4 }}>{label}</div>
+            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: COLORS.navy }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {leaders.length > 0 && (
+        <div>
+          <SectionLabel>Current Leaders</SectionLabel>
+          <div style={{ display: "grid", gap: 8 }}>
+            {leaders.map(({ player, gross, net, total, payout }) => (
+              <div key={player.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "10px 14px" }}>
+                <Avatar player={player} size={40} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: COLORS.ink }}>{player.name}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
+                    {gross > 0 ? `${gross} gross` : ""}
+                    {gross > 0 && net > 0 ? " · " : ""}
+                    {net > 0 ? `${net} net` : ""}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: "#2f6e47" }}>${payout.toFixed(2)}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>{total} skin{total === 1 ? "" : "s"}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <SectionLabel>Hole Results</SectionLabel>
+        <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden" }}>
+          {skinResults.map((r, idx) => {
+            const played = r.entries.some((e) => e.gross != null);
+            const hasResult = r.grossWinner || r.netWinner;
+            return (
+              <div key={r.hole} style={{ display: "grid", gridTemplateColumns: "36px 1fr 1fr", gap: 10, padding: "8px 14px", borderTop: idx === 0 ? "none" : `1px solid ${COLORS.line}`, background: hasResult ? "#fff" : "#fafaf8", alignItems: "center" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: COLORS.navy, textAlign: "center" }}>{r.hole + 1}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12 }}>
+                  {r.grossWinner ? (
+                    <span style={{ color: COLORS.teamBooth, fontWeight: 700 }}>🏌 {r.grossWinner.name} <span style={{ color: "#8a8470", fontWeight: 400 }}>(gross)</span></span>
+                  ) : played ? (
+                    <span style={{ color: "#a39c87" }}>No gross skin</span>
+                  ) : (
+                    <span style={{ color: "#d8d0bc" }}>—</span>
+                  )}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 12 }}>
+                  {r.netWinner ? (
+                    <span style={{ color: COLORS.teamFish, fontWeight: 700 }}>🏌 {r.netWinner.name} <span style={{ color: "#8a8470", fontWeight: 400 }}>(net)</span></span>
+                  ) : played ? (
+                    <span style={{ color: "#a39c87" }}>No net skin</span>
+                  ) : (
+                    <span style={{ color: "#d8d0bc" }}>—</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Skins Score Entry ────────────────────────────────────────────────────────
+function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsScore, tee, courseStrokeIndex, activeGroupId, setActiveGroupId, skinsSettings }) {
+  const [holeIdx, setHoleIdx] = useState(0);
+  const byId = {};
+  skinsPlayers.forEach((p) => (byId[p.id] = p));
+  const activeGroup = skinsGroups.find((g) => g.id === activeGroupId);
+  const groupPlayers = activeGroup ? activeGroup.playerIds.map((id) => byId[id]).filter(Boolean) : [];
+  const lowestHcp = tee ? lowestHandicapAmong(skinsPlayers, tee) : 0;
+
+  if (!activeGroup) {
+    return (
+      <div>
+        <SectionLabel>Select a Group to Score</SectionLabel>
+        <div style={{ display: "grid", gap: 10 }}>
+          {skinsGroups.map((g) => {
+            const gPlayers = g.playerIds.map((id) => byId[id]).filter(Boolean);
+            const holesEntered = Array.from({ length: 18 }, (_, h) => gPlayers.every((p) => skinsScores?.[h]?.[p.id] != null)).filter(Boolean).length;
+            return (
+              <button key={g.id} onClick={() => setActiveGroupId(g.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, cursor: "pointer", textAlign: "left", width: "100%" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: COLORS.ink }}>{g.name}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginTop: 2 }}>{gPlayers.map((p) => p.name).join(", ")}</div>
+                </div>
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{gPlayers.map((p) => <Avatar key={p.id} player={p} size={30} />)}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: holesEntered === 18 ? "#2f6e47" : "#8a8470", flexShrink: 0 }}>{holesEntered}/18</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: COLORS.ink }}>{activeGroup.name}</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>{skinsSettings.course}{tee ? ` · ${tee.name} tees` : ""} · Hole {holeIdx + 1} of 18</div>
+        </div>
+        <button onClick={() => setActiveGroupId(null)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: COLORS.navy, background: "#fff", border: `1px solid ${COLORS.navy}`, borderRadius: 3, padding: "8px 14px", cursor: "pointer", textTransform: "uppercase" }}>
+          Switch Group
+        </button>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+        {Array.from({ length: 18 }, (_, h) => {
+          const allEntered = groupPlayers.every((p) => skinsScores?.[h]?.[p.id] != null);
+          const isSelected = h === holeIdx;
+          return (
+            <button key={h} onClick={() => setHoleIdx(h)} style={{ width: 30, height: 30, fontFamily: MONO, fontSize: 12, border: `1px solid ${COLORS.line}`, background: isSelected ? COLORS.tan : allEntered ? COLORS.navy : "#fff", color: isSelected || allEntered ? "#fff" : COLORS.ink, cursor: "pointer", borderRadius: 2 }}>
+              {h + 1}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px", display: "grid", gap: 12 }}>
+        {groupPlayers.map((p) => {
+          const hcp = tee ? courseHandicap(p.index, tee) : null;
+          const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx) : 0;
+          const gross = skinsScores?.[holeIdx]?.[p.id];
+          const net = gross != null ? gross - strokes : null;
+          const isKeeper = activeGroup.scorekeeperId === p.id;
+          return (
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, overflow: "hidden" }}>
+                <Avatar player={p} size={40} />
+                <div>
+                  <div style={{ fontWeight: 600, color: COLORS.ink, fontFamily: SERIF, fontSize: 15 }}>
+                    {p.name}
+                    {isKeeper && <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.tan, marginLeft: 6, textTransform: "uppercase" }}>Scorekeeper</span>}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
+                    Index {p.index}{hcp != null ? ` · Course Hcp ${hcp}` : ""}{strokes > 0 ? ` · +${strokes} This Hole` : ""}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", height: 36, border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
+                <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
+                  style={{ width: net != null && net !== gross ? 28 : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none" }} />
+                {net != null && net !== gross && (
+                  <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 6px 0 0", whiteSpace: "nowrap" }}>/{net}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Skins Leaderboard ────────────────────────────────────────────────────────
+function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, skinsSettings }) {
+  const lowestHcp = tee ? lowestHandicapAmong(skinsPlayers, tee) : 0;
+  const par = tee?.par || 72;
+
+  const standings = useMemo(() => {
+    return skinsPlayers.map((p) => {
+      let grossTotal = 0, netTotal = 0, holesPlayed = 0;
+      for (let h = 0; h < 18; h++) {
+        const gross = skinsScores?.[h]?.[p.id];
+        if (gross != null) {
+          const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, h) : 0;
+          grossTotal += gross;
+          netTotal   += gross - strokes;
+          holesPlayed++;
+        }
+      }
+      return { player: p, grossTotal, netTotal, holesPlayed, grossToPar: grossTotal - par, netToPar: netTotal - par };
+    }).sort((a, b) => {
+      if (a.holesPlayed === 0 && b.holesPlayed === 0) return 0;
+      if (a.holesPlayed === 0) return 1;
+      if (b.holesPlayed === 0) return -1;
+      if (a.grossToPar !== b.grossToPar) return a.grossToPar - b.grossToPar;
+      return b.holesPlayed - a.holesPlayed;
+    });
+  }, [skinsPlayers, skinsScores, tee, courseStrokeIndex, lowestHcp, par]);
+
+  function ftp(val, holes) {
+    if (holes === 0) return "—";
+    if (val === 0) return "E";
+    return val > 0 ? `+${val}` : `${val}`;
+  }
+
+  return (
+    <div>
+      <SectionLabel>Stroke Play Standings — {skinsSettings.course}{tee ? `, ${tee.name} tees` : ""}</SectionLabel>
+      <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 12 }}>Informational only — skins determine payouts.</div>
+      <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 60px 60px 50px", gap: 8, padding: "8px 14px", background: COLORS.navy, color: COLORS.cream, fontFamily: MONO, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <div>#</div><div>Player</div><div style={{ textAlign: "center" }}>Gross</div><div style={{ textAlign: "center" }}>Net</div><div style={{ textAlign: "center" }}>Thru</div>
+        </div>
+        {standings.map((s, i) => (
+          <div key={s.player.id} style={{ display: "grid", gridTemplateColumns: "32px 1fr 60px 60px 50px", gap: 8, padding: "10px 14px", borderTop: `1px solid ${COLORS.line}`, alignItems: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>{s.holesPlayed > 0 ? i + 1 : "—"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Avatar player={s.player} size={30} />
+              <span style={{ fontFamily: SERIF, fontSize: 14, color: COLORS.ink }}>{s.player.name}</span>
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.grossToPar < 0 ? "#2f6e47" : s.grossToPar > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.grossToPar, s.holesPlayed)}</div>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.netToPar   < 0 ? "#2f6e47" : s.netToPar   > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.netToPar,   s.holesPlayed)}</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", textAlign: "center" }}>{s.holesPlayed > 0 ? s.holesPlayed : "—"}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Skins Setup ──────────────────────────────────────────────────────────────
+function SkinsSetup({ skinsPlayers, saveSkinsPlayers, skinsGroups, saveSkinsGroups, skinsSettings, saveSkinsSettings, courses }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const byId = {};
+  skinsPlayers.forEach((p) => (byId[p.id] = p));
+  const availableTees = courses[skinsSettings.course]?.tees || [];
+
+  function updateSetting(field, value) { saveSkinsSettings({ ...skinsSettings, [field]: value }); }
+  function updatePlayerIndex(playerId, value) {
+    saveSkinsPlayers(skinsPlayers.map((p) => p.id === playerId ? { ...p, index: parseFloat(value) || 0 } : p));
+  }
+  function setScorekeeper(groupId, playerId) {
+    saveSkinsGroups(skinsGroups.map((g) => g.id === groupId ? { ...g, scorekeeperId: playerId } : g));
+  }
+  function renameGroup(groupId, name) {
+    saveSkinsGroups(skinsGroups.map((g) => g.id === groupId ? { ...g, name } : g));
+  }
+  function movePlayer(playerId, toGroupId) {
+    saveSkinsGroups(skinsGroups.map((g) => ({
+      ...g,
+      playerIds: g.id === toGroupId
+        ? g.playerIds.includes(playerId) ? g.playerIds : [...g.playerIds, playerId]
+        : g.playerIds.filter((id) => id !== playerId),
+    })));
+  }
+  function restoreSkinsDefaults() {
+    if (!window.confirm("Restore skins players, groups, and settings to defaults? Scores are not affected.")) return;
+    saveSkinsPlayers(defaultSkinsPlayers);
+    saveSkinsGroups(defaultSkinsGroups);
+    saveSkinsSettings(defaultSkinsSettings);
+  }
+
+  const lockedStyle = { background: isEditing ? "#fff" : "#f1efe8", cursor: isEditing ? "text" : "not-allowed" };
+
+  return (
+    <div style={{ display: "grid", gap: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "12px 16px" }}>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>{isEditing ? "Editing unlocked — changes save immediately." : "Skins settings are locked. Tap Edit to make changes."}</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={restoreSkinsDefaults} style={{ fontFamily: MONO, fontSize: 12, padding: "8px 14px", background: "transparent", border: `1px solid ${COLORS.flag}`, color: COLORS.flag, cursor: "pointer", borderRadius: 3 }}>Restore Defaults</button>
+          <button onClick={() => setIsEditing((v) => !v)} style={{ fontFamily: MONO, fontSize: 12, padding: "8px 14px", background: isEditing ? COLORS.navy : "transparent", color: isEditing ? "#fff" : COLORS.navy, border: `1px solid ${COLORS.navy}`, cursor: "pointer", borderRadius: 3, textTransform: "uppercase" }}>{isEditing ? "Done Editing" : "Edit"}</button>
+        </div>
+      </div>
+
+      <div>
+        <SectionLabel>Game Settings</SectionLabel>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "10px 14px", flexWrap: "wrap" }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>Buy-In $</div>
+          <input type="number" min={1} value={skinsSettings.buyIn || 20} disabled={!isEditing} onChange={(e) => updateSetting("buyIn", parseFloat(e.target.value) || 20)}
+            style={{ ...lockedStyle, width: 70, fontFamily: MONO, fontSize: 14, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "5px 8px" }} />
+          <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>Course</div>
+          <select value={skinsSettings.course} disabled={!isEditing} onChange={(e) => updateSetting("course", e.target.value)}
+            style={{ ...lockedStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
+            {Object.keys(courses).map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>Tees</div>
+          <select value={skinsSettings.teeId} disabled={!isEditing} onChange={(e) => updateSetting("teeId", e.target.value)}
+            style={{ ...lockedStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
+            {availableTees.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <SectionLabel>Groups</SectionLabel>
+        <div style={{ display: "grid", gap: 14 }}>
+          {skinsGroups.map((g) => {
+            const gPlayers = g.playerIds.map((id) => byId[id]).filter(Boolean);
+            return (
+              <div key={g.id} style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "12px 14px" }}>
+                <div style={{ marginBottom: 10 }}>
+                  <input value={g.name} disabled={!isEditing} onChange={(e) => renameGroup(g.id, e.target.value)}
+                    style={{ ...lockedStyle, fontFamily: SERIF, fontWeight: 600, fontSize: 15, border: isEditing ? `1px solid ${COLORS.line}` : "none", borderRadius: 3, padding: isEditing ? "4px 8px" : 0, background: isEditing ? "#fff" : "transparent" }} />
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {gPlayers.map((p) => {
+                    const isKeeper = g.scorekeeperId === p.id;
+                    return (
+                      <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", background: "#fafaf8", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <Avatar player={p} size={30} />
+                          <span style={{ fontFamily: SERIF, fontSize: 14, color: COLORS.ink }}>{p.name}</span>
+                          {isKeeper && <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.tan, textTransform: "uppercase" }}>Scorekeeper</span>}
+                        </div>
+                        {isEditing && (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {!isKeeper && (
+                              <button onClick={() => setScorekeeper(g.id, p.id)} style={{ fontFamily: MONO, fontSize: 10, padding: "3px 8px", background: "transparent", border: `1px solid ${COLORS.tan}`, color: COLORS.tan, cursor: "pointer", borderRadius: 2 }}>Set Keeper</button>
+                            )}
+                            <select onChange={(e) => { if (e.target.value) movePlayer(p.id, e.target.value); e.target.value = ""; }} defaultValue="" style={{ fontFamily: MONO, fontSize: 10, padding: "3px 6px", border: `1px solid ${COLORS.line}`, borderRadius: 2 }}>
+                              <option value="">Move to…</option>
+                              {skinsGroups.filter((og) => og.id !== g.id).map((og) => <option key={og.id} value={og.id}>{og.name}</option>)}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <SectionLabel>Player Handicap Indexes</SectionLabel>
+        <div className="roster-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 10 }}>
+          {skinsPlayers.map((p) => (
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "6px 10px", minWidth: 0, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, overflow: "hidden", marginRight: 8 }}>
+                <Avatar player={p} size={30} />
+                <span style={{ fontFamily: SERIF, fontSize: 13, color: COLORS.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>index</span>
+                <input type="number" step={0.1} value={p.index} disabled={!isEditing} onChange={(e) => updatePlayerIndex(p.id, e.target.value)}
+                  style={{ ...lockedStyle, width: 48, fontFamily: MONO, fontSize: 13, border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "4px 4px", textAlign: "center", flexShrink: 0 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
