@@ -1779,7 +1779,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                 onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
                 placeholder="—"
                 style={{
-                  width: net != null && net !== gross ? 28 : 48,
+                  width: net != null && net !== gross ? 25 : 48,
                   height: "100%",
                   textAlign: "center",
                   fontFamily: MONO,
@@ -2813,7 +2813,7 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
                 </div>
                 <div style={{ display: "flex", alignItems: "center", height: 36, border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
                   <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
-                    style={{ width: net != null && net !== gross ? 28 : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none" }} />
+                    style={{ width: net != null && net !== gross ? 25 : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none" }} />
                   {net != null && net !== gross && (
                     <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 3px 0 0", whiteSpace: "nowrap" }}>/{net}</span>
                   )}
