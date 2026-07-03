@@ -1178,13 +1178,14 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses, confirmed
     rounds.forEach((r) => {
       const matches = matchesByRound[r.id];
       const scores = scoresByRound[r.id] || emptyScores(r.holes);
+      const confirmedIds = confirmedByRound?.[r.id] || [];
       matches.forEach((m) => {
         const state = matchPlayState(m, r, scores, courses);
-        if (state.holesPlayed > 0 && !state.final) count++;
+        if (state.holesPlayed > 0 && !state.final && !confirmedIds.includes(m.id)) count++;
       });
     });
     return count;
-  }, [rounds, matchesByRound, scoresByRound, courses]);
+  }, [rounds, matchesByRound, scoresByRound, courses, confirmedByRound]);
 
   return (
     <div>
@@ -1649,6 +1650,7 @@ function MatchPicker({ round, matches, scores, onPick, courses }) {
                 fontSize: 15,
                 textAlign: "left",
                 width: "100%",
+                color: COLORS.ink,
               }}
             >
               <div className="match-row-side side-left" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -2028,6 +2030,7 @@ function PlayerPicker({ color, list, selected, onToggle }) {
 
 function PlayerStatsModal({ player, onClose }) {
   const history = playerHistory[player.id];
+  const [lightbox, setLightbox] = useState(false);
   return (
     <div
       style={{
@@ -2055,7 +2058,9 @@ function PlayerStatsModal({ player, onClose }) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Avatar player={player} size={64} />
+            <div onClick={() => player.photo && setLightbox(true)} style={{ cursor: player.photo ? "pointer" : "default" }}>
+              <Avatar player={player} size={64} />
+            </div>
             <h2 style={{ margin: 0, fontFamily: SERIF, fontSize: 24 }}>{player.name}</h2>
           </div>
           <button onClick={onClose} style={{ border: "none", background: "transparent", fontFamily: MONO, fontSize: 13, color: COLORS.tan, cursor: "pointer" }}>
@@ -2097,6 +2102,19 @@ function PlayerStatsModal({ player, onClose }) {
           </div>
         )}
       </div>
+
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}
+        >
+          <img
+            src={player.photo}
+            alt={player.name}
+            style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 6, objectFit: "contain" }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -2589,6 +2607,7 @@ function SkinsTab({ skinsPlayers, saveSkinsPlayers, skinsGroups, saveSkinsGroups
         <SkinsLeaderboard
           skinsPlayers={skinsPlayers} skinsScores={skinsScores}
           tee={tee} courseStrokeIndex={courseStrokeIndex} skinsSettings={skinsSettings}
+          playerSkinCounts={playerSkinCounts} skinValue={skinValue}
         />
       )}
       {subTab === "setup" && (
@@ -2727,9 +2746,16 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: COLORS.ink }}>{activeGroup.name}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>{skinsSettings.course}{tee ? ` · ${tee.name} tees` : ""} · Hole {holeIdx + 1} of 18</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: COLORS.ink }}>{activeGroup.name}</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>{skinsSettings.course}{tee ? ` · ${tee.name} tees` : ""} · Hole {holeIdx + 1} of 18</div>
+          </div>
+          {courseStrokeIndex && courseStrokeIndex[holeIdx] != null && (
+            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: COLORS.navy, background: COLORS.cream, border: `1px solid ${COLORS.navy}`, borderRadius: 3, padding: "3px 8px", whiteSpace: "nowrap" }}>
+              Hole Handicap {courseStrokeIndex[holeIdx]}
+            </span>
+          )}
         </div>
         <button onClick={() => setActiveGroupId(null)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: COLORS.navy, background: "#fff", border: `1px solid ${COLORS.navy}`, borderRadius: 3, padding: "8px 14px", cursor: "pointer", textTransform: "uppercase" }}>
           Switch Group
@@ -2749,43 +2775,54 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
       </div>
 
       <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "14px 16px", display: "grid", gap: 12 }}>
-        {groupPlayers.map((p) => {
-          const hcp = tee ? courseHandicap(p.index, tee) : null;
-          const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx) : 0;
-          const gross = skinsScores?.[holeIdx]?.[p.id];
-          const net = gross != null ? gross - strokes : null;
-          const isKeeper = activeGroup.scorekeeperId === p.id;
-          return (
-            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, overflow: "hidden" }}>
-                <Avatar player={p} size={40} />
-                <div>
-                  <div style={{ fontWeight: 600, color: COLORS.ink, fontFamily: SERIF, fontSize: 15 }}>
-                    {p.name}
-                    {isKeeper && <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.tan, marginLeft: 6, textTransform: "uppercase" }}>Scorekeeper</span>}
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
-                    Index {p.index}{hcp != null ? ` · Course Hcp ${hcp}` : ""}{strokes > 0 ? ` · +${strokes} This Hole` : ""}
+        {(() => {
+          // Compute hole winner across ALL players (not just this group) for the current hole
+          const holeResult = calcSkins(skinsPlayers, skinsScores, tee, courseStrokeIndex, 18)[holeIdx];
+          const grossWinnerId = holeResult?.grossWinner?.id ?? null;
+          const netWinnerId   = holeResult?.netWinner?.id   ?? null;
+
+          return groupPlayers.map((p) => {
+            const hcp = tee ? courseHandicap(p.index, tee) : null;
+            const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx) : 0;
+            const gross = skinsScores?.[holeIdx]?.[p.id];
+            const net = gross != null ? gross - strokes : null;
+            const isKeeper     = activeGroup.scorekeeperId === p.id;
+            const isGrossWinner = p.id === grossWinnerId;
+            const isNetWinner   = p.id === netWinnerId;
+            return (
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, overflow: "hidden" }}>
+                  <Avatar player={p} size={40} />
+                  <div>
+                    <div style={{ fontWeight: 600, color: COLORS.ink, fontFamily: SERIF, fontSize: 15 }}>
+                      {p.name}
+                      {isKeeper     && <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.tan,      marginLeft: 6, textTransform: "uppercase" }}>Scorekeeper</span>}
+                      {isGrossWinner && <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.teamBooth, marginLeft: 6, textTransform: "uppercase" }}>Gross Winner</span>}
+                      {isNetWinner   && <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.teamFish,  marginLeft: 6, textTransform: "uppercase" }}>Net Winner</span>}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
+                      Index {p.index}{hcp != null ? ` · Course Hcp ${hcp}` : ""}{strokes > 0 ? ` · +${strokes} This Hole` : ""}
+                    </div>
                   </div>
                 </div>
+                <div style={{ display: "flex", alignItems: "center", height: 36, border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
+                  <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
+                    style={{ width: net != null && net !== gross ? 28 : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none" }} />
+                  {net != null && net !== gross && (
+                    <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 6px 0 0", whiteSpace: "nowrap" }}>/{net}</span>
+                  )}
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", height: 36, border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
-                <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
-                  style={{ width: net != null && net !== gross ? 28 : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none" }} />
-                {net != null && net !== gross && (
-                  <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 6px 0 0", whiteSpace: "nowrap" }}>/{net}</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </div>
     </div>
   );
 }
 
 // ─── Skins Leaderboard ────────────────────────────────────────────────────────
-function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, skinsSettings }) {
+function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, skinsSettings, playerSkinCounts, skinValue }) {
   const lowestHcp = tee ? lowestHandicapAmong(skinsPlayers, tee) : 0;
   const par = tee?.par || 72;
 
@@ -2822,21 +2859,43 @@ function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, s
       <SectionLabel>Stroke Play Standings — {skinsSettings.course}{tee ? `, ${tee.name} tees` : ""}</SectionLabel>
       <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 12 }}>Informational only — skins determine payouts.</div>
       <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 60px 60px 50px", gap: 8, padding: "8px 14px", background: COLORS.navy, color: COLORS.cream, fontFamily: MONO, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          <div>#</div><div>Player</div><div style={{ textAlign: "center" }}>Gross</div><div style={{ textAlign: "center" }}>Net</div><div style={{ textAlign: "center" }}>Thru</div>
+        <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 52px 52px 42px 60px 72px", gap: 6, padding: "8px 14px", background: COLORS.navy, color: COLORS.cream, fontFamily: MONO, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <div>#</div>
+          <div>Player</div>
+          <div style={{ textAlign: "center" }}>Gross</div>
+          <div style={{ textAlign: "center" }}>Net</div>
+          <div style={{ textAlign: "center" }}>Thru</div>
+          <div style={{ textAlign: "center" }}>Skins</div>
+          <div style={{ textAlign: "right" }}>Winnings</div>
         </div>
-        {standings.map((s, i) => (
-          <div key={s.player.id} style={{ display: "grid", gridTemplateColumns: "32px 1fr 60px 60px 50px", gap: 8, padding: "10px 14px", borderTop: `1px solid ${COLORS.line}`, alignItems: "center" }}>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>{s.holesPlayed > 0 ? i + 1 : "—"}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Avatar player={s.player} size={30} />
-              <span style={{ fontFamily: SERIF, fontSize: 14, color: COLORS.ink }}>{s.player.name}</span>
+        {standings.map((s, i) => {
+          const counts = playerSkinCounts?.[s.player.id] || { gross: 0, net: 0 };
+          const totalSkins = counts.gross + counts.net;
+          const payout = totalSkins * (skinValue || 0);
+          return (
+            <div key={s.player.id} style={{ display: "grid", gridTemplateColumns: "32px 1fr 52px 52px 42px 60px 72px", gap: 6, padding: "10px 14px", borderTop: `1px solid ${COLORS.line}`, alignItems: "center" }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>{s.holesPlayed > 0 ? i + 1 : "—"}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <Avatar player={s.player} size={30} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: SERIF, fontSize: 14, color: COLORS.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.player.name}</div>
+                  {totalSkins > 0 && (
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: "#8a8470" }}>
+                      {counts.gross > 0 ? `${counts.gross}G` : ""}
+                      {counts.gross > 0 && counts.net > 0 ? " · " : ""}
+                      {counts.net > 0 ? `${counts.net}N` : ""}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.grossToPar < 0 ? "#2f6e47" : s.grossToPar > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.grossToPar, s.holesPlayed)}</div>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.netToPar   < 0 ? "#2f6e47" : s.netToPar   > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.netToPar,   s.holesPlayed)}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", textAlign: "center" }}>{s.holesPlayed > 0 ? s.holesPlayed : "—"}</div>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: totalSkins > 0 ? COLORS.navy : "#d8d0bc" }}>{totalSkins > 0 ? totalSkins : "—"}</div>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "right", color: payout > 0 ? "#2f6e47" : "#d8d0bc" }}>{payout > 0 ? `$${payout.toFixed(2)}` : "—"}</div>
             </div>
-            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.grossToPar < 0 ? "#2f6e47" : s.grossToPar > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.grossToPar, s.holesPlayed)}</div>
-            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.netToPar   < 0 ? "#2f6e47" : s.netToPar   > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.netToPar,   s.holesPlayed)}</div>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", textAlign: "center" }}>{s.holesPlayed > 0 ? s.holesPlayed : "—"}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
