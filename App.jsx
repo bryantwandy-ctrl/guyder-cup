@@ -2108,6 +2108,12 @@ function PlayerStatsModal({ player, onClose }) {
           onClick={() => setLightbox(false)}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}
         >
+          <button
+            onClick={() => setLightbox(false)}
+            style={{ position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 36, height: 36, color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+          >
+            ✕
+          </button>
           <img
             src={player.photo}
             alt={player.name}
@@ -2859,13 +2865,12 @@ function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, s
       <SectionLabel>Stroke Play Standings — {skinsSettings.course}{tee ? `, ${tee.name} tees` : ""}</SectionLabel>
       <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 12 }}>Informational only — skins determine payouts.</div>
       <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 52px 52px 42px 60px 72px", gap: 6, padding: "8px 14px", background: COLORS.navy, color: COLORS.cream, fontFamily: MONO, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 52px 52px 42px 72px", gap: 6, padding: "8px 14px", background: COLORS.navy, color: COLORS.cream, fontFamily: MONO, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
           <div>#</div>
           <div>Player</div>
           <div style={{ textAlign: "center" }}>Gross</div>
           <div style={{ textAlign: "center" }}>Net</div>
           <div style={{ textAlign: "center" }}>Thru</div>
-          <div style={{ textAlign: "center" }}>Skins</div>
           <div style={{ textAlign: "right" }}>Winnings</div>
         </div>
         {standings.map((s, i) => {
@@ -2873,7 +2878,7 @@ function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, s
           const totalSkins = counts.gross + counts.net;
           const payout = totalSkins * (skinValue || 0);
           return (
-            <div key={s.player.id} style={{ display: "grid", gridTemplateColumns: "32px 1fr 52px 52px 42px 60px 72px", gap: 6, padding: "10px 14px", borderTop: `1px solid ${COLORS.line}`, alignItems: "center" }}>
+            <div key={s.player.id} style={{ display: "grid", gridTemplateColumns: "32px 1fr 52px 52px 42px 72px", gap: 6, padding: "10px 14px", borderTop: `1px solid ${COLORS.line}`, alignItems: "center" }}>
               <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>{s.holesPlayed > 0 ? i + 1 : "—"}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <Avatar player={s.player} size={30} />
@@ -2891,7 +2896,6 @@ function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, s
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.grossToPar < 0 ? "#2f6e47" : s.grossToPar > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.grossToPar, s.holesPlayed)}</div>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.netToPar   < 0 ? "#2f6e47" : s.netToPar   > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.netToPar,   s.holesPlayed)}</div>
               <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", textAlign: "center" }}>{s.holesPlayed > 0 ? s.holesPlayed : "—"}</div>
-              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: totalSkins > 0 ? COLORS.navy : "#d8d0bc" }}>{totalSkins > 0 ? totalSkins : "—"}</div>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "right", color: payout > 0 ? "#2f6e47" : "#d8d0bc" }}>{payout > 0 ? `$${payout.toFixed(2)}` : "—"}</div>
             </div>
           );
