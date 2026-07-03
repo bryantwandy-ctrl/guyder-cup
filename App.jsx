@@ -1786,13 +1786,14 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                 onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
                 placeholder="—"
                 style={{
-                  width: net != null && net !== gross ? 32 : 48,
+                  width: net != null && net !== gross ? "auto" : 48,
+                  flex: net != null && net !== gross ? "0 0 auto" : "none",
                   height: "100%",
                   textAlign: "center",
                   fontFamily: MONO,
                   fontSize: 16,
                   border: "none",
-                  padding: 0,
+                  padding: "0 2px",
                 }}
               />
               {net != null && net !== gross && (
@@ -1801,7 +1802,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                     fontFamily: MONO,
                     fontSize: 14,
                     color: COLORS.tan,
-                    padding: "0 4px 0 2px",
+                    padding: "0 2px",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -2821,9 +2822,9 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 36, border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
                   <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
-                    style={{ width: net != null && net !== gross ? 32 : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none", padding: 0 }} />
+                    style={{ width: net != null && net !== gross ? "auto" : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none", padding: "0 2px" }} />
                   {net != null && net !== gross && (
-                    <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 4px 0 2px", whiteSpace: "nowrap" }}>/{net}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 2px", whiteSpace: "nowrap" }}>/{net}</span>
                   )}
                 </div>
               </div>
