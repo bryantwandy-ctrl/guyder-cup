@@ -1771,43 +1771,60 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                 alignItems: "center",
                 justifyContent: "center",
                 height: 36,
+                width: net != null && net !== gross ? 72 : 48,
                 border: `1px solid ${COLORS.line}`,
                 borderRadius: 3,
-                overflow: "hidden",
                 background: "#fff",
                 flexShrink: 0,
+                position: "relative",
               }}
             >
-              <input
-                type="number"
-                min={1}
-                max={15}
-                value={gross ?? ""}
-                onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
-                placeholder="—"
-                style={{
-                  width: net != null && net !== gross ? "auto" : 48,
-                  flex: net != null && net !== gross ? "0 0 auto" : "none",
-                  height: "100%",
-                  textAlign: "center",
-                  fontFamily: MONO,
-                  fontSize: 16,
-                  border: "none",
-                  padding: "0 2px",
-                }}
-              />
-              {net != null && net !== gross && (
-                <span
+              {net != null && net !== gross ? (
+                <>
+                  <input
+                    type="number"
+                    min={1}
+                    max={15}
+                    value={gross ?? ""}
+                    onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
+                    placeholder="—"
+                    style={{
+                      width: 32,
+                      height: "100%",
+                      textAlign: "right",
+                      fontFamily: MONO,
+                      fontSize: 16,
+                      border: "none",
+                      padding: 0,
+                      background: "transparent",
+                    }}
+                  />
+                  <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 1px" }}>
+                    /
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, width: 28, textAlign: "left" }}>
+                    {net}
+                  </span>
+                </>
+              ) : (
+                <input
+                  type="number"
+                  min={1}
+                  max={15}
+                  value={gross ?? ""}
+                  onChange={(e) => updateScore(round.id, holeIdx, p.id, e.target.value)}
+                  placeholder="—"
                   style={{
+                    width: 48,
+                    height: "100%",
+                    textAlign: "center",
                     fontFamily: MONO,
-                    fontSize: 14,
-                    color: COLORS.tan,
-                    padding: "0 2px",
-                    whiteSpace: "nowrap",
+                    fontSize: 16,
+                    border: "none",
+                    padding: 0,
+                    background: "transparent",
                   }}
-                >
-                  /{net}
-                </span>
+                />
               )}
             </div>
           </div>
@@ -2820,11 +2837,17 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
                     </div>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 36, border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
-                  <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
-                    style={{ width: net != null && net !== gross ? "auto" : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none", padding: "0 2px" }} />
-                  {net != null && net !== gross && (
-                    <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 2px", whiteSpace: "nowrap" }}>/{net}</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 36, width: net != null && net !== gross ? 72 : 48, border: `1px solid ${COLORS.line}`, borderRadius: 3, background: "#fff", flexShrink: 0 }}>
+                  {net != null && net !== gross ? (
+                    <>
+                      <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
+                        style={{ width: 32, height: "100%", textAlign: "right", fontFamily: MONO, fontSize: 16, border: "none", padding: 0, background: "transparent" }} />
+                      <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, padding: "0 1px" }}>/</span>
+                      <span style={{ fontFamily: MONO, fontSize: 14, color: COLORS.tan, width: 28, textAlign: "left" }}>{net}</span>
+                    </>
+                  ) : (
+                    <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
+                      style={{ width: 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none", padding: 0, background: "transparent" }} />
                   )}
                 </div>
               </div>
