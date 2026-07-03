@@ -1777,7 +1777,9 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                 background: "#fff",
                 flexShrink: 0,
                 position: "relative",
+                cursor: "text",
               }}
+              onClick={(e) => e.currentTarget.querySelector("input").focus()}
             >
               {net != null && net !== gross ? (
                 <>
@@ -2837,7 +2839,7 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
                     </div>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 36, width: net != null && net !== gross ? 72 : 48, border: `1px solid ${COLORS.line}`, borderRadius: 3, background: "#fff", flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 36, width: net != null && net !== gross ? 72 : 48, border: `1px solid ${COLORS.line}`, borderRadius: 3, background: "#fff", flexShrink: 0, cursor: "text" }} onClick={(e) => e.currentTarget.querySelector("input").focus()}>
                   {net != null && net !== gross ? (
                     <>
                       <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
