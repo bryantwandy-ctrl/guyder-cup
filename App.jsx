@@ -1769,6 +1769,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
               style={{
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
                 height: 36,
                 border: `1px solid ${COLORS.line}`,
                 borderRadius: 3,
@@ -2818,7 +2819,7 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
                     </div>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", height: 36, border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 36, border: `1px solid ${COLORS.line}`, borderRadius: 3, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
                   <input type="number" min={1} max={15} value={gross ?? ""} onChange={(e) => updateSkinsScore(holeIdx, p.id, e.target.value)} placeholder="—"
                     style={{ width: net != null && net !== gross ? 32 : 48, height: "100%", textAlign: "center", fontFamily: MONO, fontSize: 16, border: "none", padding: 0 }} />
                   {net != null && net !== gross && (
