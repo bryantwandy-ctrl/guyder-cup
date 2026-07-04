@@ -1938,9 +1938,25 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                     <Avatar key={p.id} player={p} size={34} />
                   ))}
                 </div>
-                {m.side1.map((p) => p.name).join(" / ")}
+                {m.side1.map((p) => {
+                  const tee = findTee(courses, round.course, m.teeId);
+                  const hcp = tee ? courseHandicap(p.index, tee) : null;
+                  return (
+                    <span key={p.id}>
+                      {p.name}{hcp != null ? <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span> : ""}
+                    </span>
+                  );
+                }).reduce((acc, el, i) => i === 0 ? [el] : [...acc, " / ", el], [])}
                 <span style={{ color: "#a39c87" }}> vs </span>
-                {m.side2.map((p) => p.name).join(" / ")}
+                {m.side2.map((p) => {
+                  const tee = findTee(courses, round.course, m.teeId);
+                  const hcp = tee ? courseHandicap(p.index, tee) : null;
+                  return (
+                    <span key={p.id}>
+                      {p.name}{hcp != null ? <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span> : ""}
+                    </span>
+                  );
+                }).reduce((acc, el, i) => i === 0 ? [el] : [...acc, " / ", el], [])}
                 <div style={{ display: "flex" }}>
                   {m.side2.map((p) => (
                     <Avatar key={p.id} player={p} size={34} />
@@ -1974,10 +1990,15 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
         <div style={{ background: "#fff", border: `1px dashed ${COLORS.navy}`, borderRadius: 3, padding: "16px" }}>
           <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", marginBottom: 12 }}>
             Tap {size === 2 ? "two" : "one"} player{size === 2 ? "s" : ""} from each team to build the next match.
+            {newTeeId && courses[round.course]?.tees.find(t => t.id === newTeeId) && (
+              <span style={{ marginLeft: 6, color: COLORS.tan }}>
+                Hcp shown for {courses[round.course].tees.find(t => t.id === newTeeId).name} tees
+              </span>
+            )}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, marginBottom: 14 }}>
-            <PlayerPicker color={COLORS.teamBooth} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} />
-            <PlayerPicker color={COLORS.teamFish} list={unFish} selected={selFish} onToggle={(id) => toggleSelect(selFish, setSelFish, id)} />
+            <PlayerPicker color={COLORS.teamBooth} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} tee={newTeeId ? findTee(courses, round.course, newTeeId) : availableTees[0] ? availableTees[0] : null} />
+            <PlayerPicker color={COLORS.teamFish}  list={unFish}  selected={selFish}  onToggle={(id) => toggleSelect(selFish,  setSelFish,  id)} tee={newTeeId ? findTee(courses, round.course, newTeeId) : availableTees[0] ? availableTees[0] : null} />
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <select
@@ -2015,11 +2036,12 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
   );
 }
 
-function PlayerPicker({ color, list, selected, onToggle }) {
+function PlayerPicker({ color, list, selected, onToggle, tee }) {
   return (
     <div style={{ display: "grid", gap: 6 }}>
       {list.map((p) => {
         const isSel = selected.includes(p.id);
+        const hcp = tee ? courseHandicap(p.index, tee) : null;
         return (
           <button
             key={p.id}
@@ -2043,7 +2065,12 @@ function PlayerPicker({ color, list, selected, onToggle }) {
             }}
           >
             <Avatar player={p} size={30} />
-            <span style={{ minWidth: 0, overflowWrap: "break-word" }}>{p.name}</span>
+            <span style={{ flex: 1, minWidth: 0, overflowWrap: "break-word" }}>{p.name}</span>
+            {hcp != null && (
+              <span style={{ fontFamily: MONO, fontSize: 11, opacity: 0.75, flexShrink: 0 }}>
+                {hcp}
+              </span>
+            )}
           </button>
         );
       })}
