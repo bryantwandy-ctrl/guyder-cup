@@ -3233,10 +3233,27 @@ function BetsTab({ bets, saveBets, players, rounds, matchesByRound, scoresByRoun
     saveBets(bets.map((b) => b.id === betId ? { ...b, status: "taken", takerId, takenAt: new Date().toISOString() } : b));
   }
 
+  function retractBet(betId) {
+    saveBets(bets.filter((b) => b.id !== betId));
+  }
+
+  function clearAllBets() {
+    if (!window.confirm("Clear all bets? This permanently deletes every open and taken bet. Can't be undone.")) return;
+    saveBets([]);
+  }
+
   return (
     <div>
-      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.22em", color: COLORS.tan, textTransform: "uppercase", marginBottom: 10 }}>
-        Live Bets
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.22em", color: COLORS.tan, textTransform: "uppercase" }}>
+          Live Bets
+        </div>
+        <button
+          onClick={clearAllBets}
+          style={{ fontFamily: MONO, fontSize: 11, padding: "5px 10px", background: "transparent", border: `1px solid ${COLORS.flag}`, color: COLORS.flag, cursor: "pointer", borderRadius: 3 }}
+        >
+          Clear All
+        </button>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 14 }}>
@@ -3266,7 +3283,7 @@ function BetsTab({ bets, saveBets, players, rounds, matchesByRound, scoresByRoun
           ) : (
             <div style={{ display: "grid", gap: 10 }}>
               {openBets.map((bet) => (
-                <BetCard key={bet.id} bet={bet} byId={byId} rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} courses={courses} players={players} onTake={takeBet} showTake />
+                <BetCard key={bet.id} bet={bet} byId={byId} rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} courses={courses} players={players} onTake={takeBet} onRetract={retractBet} showTake />
               ))}
             </div>
           )}
@@ -3315,7 +3332,7 @@ function BetsTab({ bets, saveBets, players, rounds, matchesByRound, scoresByRoun
   );
 }
 
-function BetCard({ bet, byId, rounds, matchesByRound, scoresByRound, courses, players, onTake, showTake }) {
+function BetCard({ bet, byId, rounds, matchesByRound, scoresByRound, courses, players, onTake, onRetract, showTake }) {
   const [taking, setTaking] = useState(false);
   const [takerId, setTakerId] = useState("");
 
@@ -3382,9 +3399,16 @@ function BetCard({ bet, byId, rounds, matchesByRound, scoresByRound, courses, pl
       )}
 
       {showTake && bet.status === "open" && !taking && (
-        <button onClick={() => setTaking(true)} style={{ fontFamily: MONO, fontSize: 12, padding: "8px 14px", background: COLORS.navy, color: "#fff", border: "none", borderRadius: 3, cursor: "pointer", textTransform: "uppercase" }}>
-          Take this bet — back {takerSideLabel} for ${takerStake}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button onClick={() => setTaking(true)} style={{ fontFamily: MONO, fontSize: 12, padding: "8px 14px", background: COLORS.navy, color: "#fff", border: "none", borderRadius: 3, cursor: "pointer", textTransform: "uppercase" }}>
+            Take this bet — back {takerSideLabel} for ${takerStake}
+          </button>
+          {onRetract && (
+            <button onClick={() => onRetract(bet.id)} style={{ fontFamily: MONO, fontSize: 11, padding: "8px 12px", background: "transparent", border: `1px solid ${COLORS.flag}`, color: COLORS.flag, borderRadius: 3, cursor: "pointer" }}>
+              Retract
+            </button>
+          )}
+        </div>
       )}
 
       {taking && (
