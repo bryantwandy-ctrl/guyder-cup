@@ -158,8 +158,8 @@ function courseHandicap(index, tee) {
 }
 
 function adjustedCourseHandicap(index, tee, pct = 1.0) {
-  const raw = courseHandicap(index, tee);
-  if (raw == null) return null;
+  if (!tee) return null;
+  const raw = index * (tee.slope / 113) + (tee.rating - tee.par);
   return Math.round(raw * pct);
 }
 
@@ -372,8 +372,9 @@ function americanOdds(probability) {
 function matchOdds(match, round, scores, courses) {
   const tee = findTee(courses, round.course, match.teeId);
   if (!tee) return null;
+  const pct = round.allowance ?? 1.0;
   const avgHcp = (players) => {
-    const hcps = players.map((p) => courseHandicap(p.index, tee)).filter((h) => h != null);
+    const hcps = players.map((p) => adjustedCourseHandicap(p.index, tee, pct)).filter((h) => h != null);
     return hcps.length ? hcps.reduce((a, b) => a + b, 0) / hcps.length : 0;
   };
   const hcpGap = avgHcp(match.side1) - avgHcp(match.side2);
