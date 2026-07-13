@@ -125,15 +125,15 @@ const defaultCourses = {
   Highlands: {
     strokeIndex: [5, 1, 17, 13, 11, 9, 15, 7, 3, 16, 10, 2, 18, 8, 12, 6, 14, 4],
     tees: [
-      { id: "h-i", name: "I", rating: 72.4, slope: 140, par: 71 },
       { id: "h-ii", name: "II", rating: 71.3, slope: 138, par: 71 },
+      { id: "h-i", name: "I", rating: 72.4, slope: 140, par: 71 },
       { id: "h-iii", name: "III", rating: 70.4, slope: 135, par: 71 },
     ],
   },
   Keep: {
     strokeIndex: [1, 13, 9, 11, 7, 17, 15, 5, 3, 6, 10, 18, 4, 8, 12, 2, 16, 14],
     tees: [
-      { id: "k-blue", name: "Blue", rating: 73.1, slope: 140, par: 72 },
+      { id: "k-blue", name: "Blue", rating: 73.7, slope: 140, par: 72 },
       { id: "k-bluewhite", name: "Blue/White", rating: 71.9, slope: 135, par: 72 },
       { id: "k-white", name: "White", rating: 70.6, slope: 132, par: 72 },
       { id: "k-whitegreen", name: "White/Green", rating: 68.3, slope: 130, par: 72 },
@@ -446,8 +446,8 @@ const defaultSkinsGroups = [
 
 const defaultSkinsSettings = {
   buyIn: 20,
-  course: "Highlands",
-  teeId: "h-i",
+  course: "Keep",
+  teeId: "k-blue",
   allowance: 1.0,
 };
 
