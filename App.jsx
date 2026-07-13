@@ -2443,7 +2443,7 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                 ))}
               </select>
               <select
-                value={r.allowance ?? 0.9}
+                value={r.allowance ?? 1.0}
                 disabled={!isEditing}
                 onChange={(e) => updateRoundField(r.id, "allowance", parseFloat(e.target.value))}
                 style={{ ...lockedInputStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
