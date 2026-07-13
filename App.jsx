@@ -82,22 +82,22 @@ const TEAM_BOOTH = "Booth";
 const TEAM_FISH = "Fish";
 
 const defaultPlayers = [
-  { id: 1, name: "Booth", team: TEAM_BOOTH, index: 17.2, photo: "/photos/booth.jpg" },
-  { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 4.6, photo: "/photos/clinton.jpg" },
-  { id: 3, name: "Niemeyer", team: TEAM_BOOTH, index: 8.1, photo: "/photos/niemeyer.jpg" },
-  { id: 4, name: "Rams", team: TEAM_BOOTH, index: 11.6, photo: "/photos/rams.jpg" },
-  { id: 5, name: "Rio", team: TEAM_BOOTH, index: 11.8, photo: "/photos/rio.jpg" },
-  { id: 6, name: "AB", team: TEAM_BOOTH, index: 17.8, photo: "/photos/ab.jpg" },
-  { id: 7, name: "Bobby", team: TEAM_BOOTH, index: 20.5, photo: "/photos/bobby.jpg" },
-  { id: 8, name: "J4", team: TEAM_BOOTH, index: 9.6, photo: "/photos/j4.jpg" },
-  { id: 9, name: "Fish", team: TEAM_FISH, index: 3.2, photo: "/photos/fish.jpg" },
-  { id: 10, name: "Danny", team: TEAM_FISH, index: 7.5, photo: "/photos/danny.jpg" },
-  { id: 11, name: "Rames", team: TEAM_FISH, index: 8.6, photo: "/photos/rames.jpg" },
-  { id: 12, name: "Bearman", team: TEAM_FISH, index: 9.4, photo: "/photos/bearman.jpg" },
-  { id: 13, name: "Littel", team: TEAM_FISH, index: 15.6, photo: "/photos/littel.jpg" },
-  { id: 14, name: "Larson", team: TEAM_FISH, index: 8.4, photo: "/photos/larson.jpg" },
+  { id: 1, name: "Booth", team: TEAM_BOOTH, index: 17.9, photo: "/photos/booth.jpg" },
+  { id: 2, name: "Clinton", team: TEAM_BOOTH, index: 5.6, photo: "/photos/clinton.jpg" },
+  { id: 3, name: "Niemeyer", team: TEAM_BOOTH, index: 8.6, photo: "/photos/niemeyer.jpg" },
+  { id: 4, name: "Rams", team: TEAM_BOOTH, index: 10.7, photo: "/photos/rams.jpg" },
+  { id: 5, name: "Rio", team: TEAM_BOOTH, index: 12.1, photo: "/photos/rio.jpg" },
+  { id: 6, name: "AB", team: TEAM_BOOTH, index: 17.2, photo: "/photos/ab.jpg" },
+  { id: 7, name: "Bobby", team: TEAM_BOOTH, index: 20.3, photo: "/photos/bobby.jpg" },
+  { id: 8, name: "J4", team: TEAM_BOOTH, index: 10.9, photo: "/photos/j4.jpg" },
+  { id: 9, name: "Fish", team: TEAM_FISH, index: 1.4, photo: "/photos/fish.jpg" },
+  { id: 10, name: "Danny", team: TEAM_FISH, index: 7.9, photo: "/photos/danny.jpg" },
+  { id: 11, name: "Rames", team: TEAM_FISH, index: 9.0, photo: "/photos/rames.jpg" },
+  { id: 12, name: "Bearman", team: TEAM_FISH, index: 9.7, photo: "/photos/bearman.jpg" },
+  { id: 13, name: "Littel", team: TEAM_FISH, index: 15.3, photo: "/photos/littel.jpg" },
+  { id: 14, name: "Larson", team: TEAM_FISH, index: 7.7, photo: "/photos/larson.jpg" },
   { id: 15, name: "Doug", team: TEAM_FISH, index: 23.6, photo: "/photos/doug.jpg" },
-  { id: 16, name: "Meyer", team: TEAM_FISH, index: 20.8, photo: "/photos/meyer.jpg" },
+  { id: 16, name: "Meyer", team: TEAM_FISH, index: 19.1, photo: "/photos/meyer.jpg" },
 ];
 
 const alternates = [];
@@ -174,7 +174,7 @@ function strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx) {
 
 const defaultRounds = [
   { id: 1, label: "AM Best Ball", format: "bestball", holes: 18, course: "Keep" },
-  { id: 2, label: "PM Best Ball", format: "bestball", holes: 18, course: "Keep" },
+  { id: 2, label: "PM Best Ball", format: "bestball", holes: 18, course: "Highlands" },
   { id: 3, label: "Singles", format: "singles", holes: 18, course: "Keep" },
 ];
 
@@ -421,6 +421,7 @@ function roundsKey() {
 function confirmedKey(roundId) {
   return `${TOURNAMENT_ID}:confirmed:round-${roundId}`;
 }
+function betsKey() { return `${TOURNAMENT_ID}:bets`; }
 
 
 // ─── Skins constants ─────────────────────────────────────────────────────────
@@ -677,6 +678,8 @@ export default function GolfTracker() {
   const [skinsSettings, setSkinsSettings] = useState(defaultSkinsSettings);
   const [skinsScores, setSkinsScores]     = useState(() => emptyScores(18));
   const [skinsLoaded, setSkinsLoaded]     = useState(false);
+  const [bets, setBets]                   = useState([]);
+  const [betsLoaded, setBetsLoaded]       = useState(false);
 
   const matchesByRound = useMemo(() => {
     const m = {};
@@ -771,6 +774,27 @@ export default function GolfTracker() {
     }, POLL_MS);
     return () => clearInterval(interval);
   }, [skinsLoaded]);
+
+  // Load bets on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const b = await loadJSON(betsKey(), []);
+      if (!cancelled) { setBets(b); setBetsLoaded(true); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Poll bets
+  useEffect(() => {
+    if (!betsLoaded) return;
+    const interval = setInterval(async () => {
+      const b = await loadJSON(betsKey(), []);
+      setBets(b);
+    }, POLL_MS);
+    return () => clearInterval(interval);
+  }, [betsLoaded]);
 
   const totalPoints = useMemo(() => {
     let a = 0,
@@ -870,6 +894,7 @@ export default function GolfTracker() {
   function saveSkinsPlayers(updated)  { setSkinsPlayers(updated);  saveJSON(skinsPlayersKey(),  updated); }
   function saveSkinsGroups(updated)   { setSkinsGroups(updated);   saveJSON(skinsGroupsKey(),   updated); }
   function saveSkinsSettings(updated) { setSkinsSettings(updated); saveJSON(skinsSettingsKey(), updated); }
+  function saveBets(updated) { setBets(updated); saveJSON(betsKey(), updated); }
   function updateSkinsScore(holeIdx, playerId, value) {
     setSkinsScores((prev) => {
       const next = prev.map((h) => ({ ...h }));
@@ -885,7 +910,7 @@ export default function GolfTracker() {
   const pairings = pairingsByRound[round.id];
   const winNeeded = totalPoints.possible / 2 + 0.5;
 
-  if (!loaded || !skinsLoaded) {
+  if (!loaded || !skinsLoaded || !betsLoaded) {
     return (
       <div
         style={{
@@ -1048,7 +1073,7 @@ export default function GolfTracker() {
           Leaderboard
         </TabButton>
         <TabButton active={tab === "score"} onClick={() => setTab("score")}>
-          Enter Scores
+          Scorecard
         </TabButton>
         <TabButton active={tab === "pairings"} onClick={() => setTab("pairings")}>
           Pairings
@@ -1058,6 +1083,9 @@ export default function GolfTracker() {
         </TabButton>
         <TabButton active={tab === "skins"} onClick={() => setTab("skins")}>
           Skins
+        </TabButton>
+        <TabButton active={tab === "bets"} onClick={() => setTab("bets")}>
+          Bets
         </TabButton>
       </div>
 
@@ -1081,7 +1109,15 @@ export default function GolfTracker() {
 
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
         {tab === "leaderboard" && (
-          <Leaderboard rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} courses={courses} confirmedByRound={confirmedByRound} />
+          <Leaderboard
+            rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound}
+            courses={courses} confirmedByRound={confirmedByRound}
+            onMatchClick={(roundIdx, matchId) => {
+              setActiveRound(roundIdx);
+              setMyMatchId(matchId);
+              setTab("score");
+            }}
+          />
         )}
 
         {tab === "score" && (
@@ -1137,6 +1173,17 @@ export default function GolfTracker() {
             courses={courses}
           />
         )}
+        {tab === "bets" && (
+          <BetsTab
+            bets={bets}
+            saveBets={saveBets}
+            players={players}
+            rounds={rounds}
+            matchesByRound={matchesByRound}
+            scoresByRound={scoresByRound}
+            courses={courses}
+          />
+        )}
       </div>
     </div>
     </>
@@ -1172,7 +1219,7 @@ function TeamScore({ label, value, color }) {
   );
 }
 
-function Leaderboard({ rounds, matchesByRound, scoresByRound, courses, confirmedByRound }) {
+function Leaderboard({ rounds, matchesByRound, scoresByRound, courses, confirmedByRound, onMatchClick }) {
   const [collapsed, setCollapsed] = useState({});
 
   function toggleCollapsed(roundId) {
@@ -1252,15 +1299,18 @@ function Leaderboard({ rounds, matchesByRound, scoresByRound, courses, confirmed
                 {matches.map((m, idx) => {
                   const state = matchPlayState(m, r, scores, courses);
                   const odds = matchOdds(m, r, scores, courses);
+                  const roundIdx = rounds.findIndex((rr) => rr.id === r.id);
                   return (
                     <div
                       key={m.id}
                       className="match-row"
+                      onClick={() => onMatchClick && onMatchClick(roundIdx, m.id)}
                       style={{
                         alignItems: "center",
                         padding: "12px 16px",
                         borderTop: idx === 0 ? "none" : `1px solid ${COLORS.line}`,
                         gap: 12,
+                        cursor: onMatchClick ? "pointer" : "default",
                       }}
                     >
                       <div className="match-row-side side-left" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, minWidth: 0, fontWeight: state.leader === "side1" ? 700 : 400 }}>
@@ -1918,12 +1968,14 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
 
       {matches.length > 0 && (
         <div style={{ display: "grid", gap: 10, marginBottom: 22 }}>
-          {matches.map((m) => (
+          {matches.map((m) => {
+            const matchTee = findTee(courses, round.course, m.teeId);
+            return (
             <div
               key={m.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
                 alignItems: "center",
                 gap: 10,
                 background: "#fff",
@@ -1932,57 +1984,66 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                 padding: "10px 14px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: SERIF, fontSize: 14, minWidth: 0, flexWrap: "wrap" }}>
+              {/* Side 1 — left aligned */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <div style={{ display: "flex", flexShrink: 0 }}>
-                  {m.side1.map((p) => (
-                    <Avatar key={p.id} player={p} size={34} />
-                  ))}
+                  {m.side1.map((p) => <Avatar key={p.id} player={p} size={34} />)}
                 </div>
-                {m.side1.map((p) => {
-                  const tee = findTee(courses, round.course, m.teeId);
-                  const hcp = tee ? courseHandicap(p.index, tee) : null;
-                  return (
-                    <span key={p.id}>
-                      {p.name}{hcp != null ? <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span> : ""}
-                    </span>
-                  );
-                }).reduce((acc, el, i) => i === 0 ? [el] : [...acc, " / ", el], [])}
-                <span style={{ color: "#a39c87" }}> vs </span>
-                {m.side2.map((p) => {
-                  const tee = findTee(courses, round.course, m.teeId);
-                  const hcp = tee ? courseHandicap(p.index, tee) : null;
-                  return (
-                    <span key={p.id}>
-                      {p.name}{hcp != null ? <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span> : ""}
-                    </span>
-                  );
-                }).reduce((acc, el, i) => i === 0 ? [el] : [...acc, " / ", el], [])}
-                <div style={{ display: "flex" }}>
-                  {m.side2.map((p) => (
-                    <Avatar key={p.id} player={p} size={34} />
-                  ))}
+                <div style={{ minWidth: 0 }}>
+                  {m.side1.map((p, i) => {
+                    const hcp = matchTee ? courseHandicap(p.index, matchTee) : null;
+                    return (
+                      <span key={p.id}>
+                        {i > 0 && " / "}
+                        {p.name}
+                        {hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span>}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
-              <select
-                value={m.teeId || ""}
-                onChange={(e) => changeTee(m.id, e.target.value)}
-                style={{ fontFamily: MONO, fontSize: 12, padding: "5px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
-              >
-                <option value="">No Tee Set</option>
-                {availableTees.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} tees
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => removeMatch(m.id)}
-                style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
-              >
-                Remove
-              </button>
+
+              {/* Center — tee selector + remove */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <select
+                  value={m.teeId || ""}
+                  onChange={(e) => changeTee(m.id, e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: 12, padding: "5px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
+                >
+                  <option value="">No Tee Set</option>
+                  {availableTees.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} tees</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => removeMatch(m.id)}
+                  style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
+                >
+                  Remove
+                </button>
+              </div>
+
+              {/* Side 2 — right aligned */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, justifyContent: "flex-end" }}>
+                <div style={{ minWidth: 0, textAlign: "right" }}>
+                  {m.side2.map((p, i) => {
+                    const hcp = matchTee ? courseHandicap(p.index, matchTee) : null;
+                    return (
+                      <span key={p.id}>
+                        {i > 0 && " / "}
+                        {p.name}
+                        {hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", flexShrink: 0 }}>
+                  {m.side2.map((p) => <Avatar key={p.id} player={p} size={34} />)}
+                </div>
+              </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -2642,7 +2703,7 @@ function SkinsTab({ skinsPlayers, saveSkinsPlayers, skinsGroups, saveSkinsGroups
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 14 }}>
         <TabButton active={subTab === "dashboard"}   onClick={() => setSubTab("dashboard")}>Skins</TabButton>
-        <TabButton active={subTab === "scores"}      onClick={() => setSubTab("scores")}>Enter Scores</TabButton>
+        <TabButton active={subTab === "scores"}      onClick={() => setSubTab("scores")}>Scorecard</TabButton>
         <TabButton active={subTab === "leaderboard"} onClick={() => setSubTab("leaderboard")}>Leaderboard</TabButton>
         <TabButton active={subTab === "setup"}       onClick={() => setSubTab("setup")}>Setup</TabButton>
       </div>
@@ -3093,3 +3154,384 @@ function SkinsSetup({ skinsPlayers, saveSkinsPlayers, skinsGroups, saveSkinsGrou
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BETS TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function calcTakerStake(posterStake, posterOdds) {
+  if (posterOdds < 0) return Math.round(posterStake * 100 / Math.abs(posterOdds) * 100) / 100;
+  return Math.round(posterStake * posterOdds / 100 * 100) / 100;
+}
+
+function calcPosterWin(posterStake, posterOdds) {
+  if (posterOdds < 0) return Math.round(posterStake * 100 / Math.abs(posterOdds) * 100) / 100;
+  return Math.round(posterStake * posterOdds / 100 * 100) / 100;
+}
+
+function settleBets(bets, players, rounds, matchesByRound, scoresByRound, courses) {
+  const byId = {};
+  players.forEach((p) => (byId[p.id] = p));
+  const balances = {};
+  players.forEach((p) => (balances[p.id] = 0));
+
+  bets.forEach((bet) => {
+    if (bet.status !== "taken") return;
+    const r = rounds.find((r) => r.id === bet.roundId);
+    if (!r) return;
+    const matches = matchesByRound[r.id] || [];
+    const match = matches.find((m) => m.id === bet.matchId);
+    if (!match) return;
+    const scores = scoresByRound[r.id] || emptyScores(r.holes);
+    const state = matchPlayState(match, r, scores, courses);
+    if (!state.final) return;
+
+    const posterWon = (bet.posterSide === "side1" && state.diff > 0) || (bet.posterSide === "side2" && state.diff < 0);
+    const halved = state.diff === 0;
+    if (halved) return;
+
+    const posterWin = calcPosterWin(bet.stake, bet.posterOdds);
+    if (posterWon) {
+      balances[bet.posterId] = (balances[bet.posterId] || 0) + posterWin;
+      balances[bet.takerId]  = (balances[bet.takerId]  || 0) - posterWin;
+    } else {
+      balances[bet.posterId] = (balances[bet.posterId] || 0) - bet.stake;
+      balances[bet.takerId]  = (balances[bet.takerId]  || 0) + bet.stake;
+    }
+  });
+
+  // Minimize transactions: greedy creditor/debtor matching
+  const creditors = Object.entries(balances).filter(([,v]) => v > 0.005).map(([id,v]) => ({ id: parseInt(id), amount: v })).sort((a,b) => b.amount - a.amount);
+  const debtors   = Object.entries(balances).filter(([,v]) => v < -0.005).map(([id,v]) => ({ id: parseInt(id), amount: -v })).sort((a,b) => b.amount - a.amount);
+
+  const transactions = [];
+  let ci = 0, di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const amount = Math.min(creditors[ci].amount, debtors[di].amount);
+    transactions.push({ from: debtors[di].id, to: creditors[ci].id, amount: Math.round(amount * 100) / 100 });
+    creditors[ci].amount -= amount;
+    debtors[di].amount   -= amount;
+    if (creditors[ci].amount < 0.005) ci++;
+    if (debtors[di].amount   < 0.005) di++;
+  }
+  return { balances, transactions };
+}
+
+function BetsTab({ bets, saveBets, players, rounds, matchesByRound, scoresByRound, courses }) {
+  const [subTab, setSubTab] = useState("open");
+  const [posting, setPosting] = useState(false);
+  const byId = {};
+  players.forEach((p) => (byId[p.id] = p));
+
+  const { transactions } = useMemo(
+    () => settleBets(bets, players, rounds, matchesByRound, scoresByRound, courses),
+    [bets, players, rounds, matchesByRound, scoresByRound, courses]
+  );
+
+  const openBets   = bets.filter((b) => b.status === "open");
+  const takenBets  = bets.filter((b) => b.status === "taken");
+
+  function postBet(bet) {
+    saveBets([...bets, { ...bet, id: `bet-${Date.now()}`, status: "open", takerId: null, postedAt: new Date().toISOString() }]);
+    setPosting(false);
+  }
+
+  function takeBet(betId, takerId) {
+    saveBets(bets.map((b) => b.id === betId ? { ...b, status: "taken", takerId, takenAt: new Date().toISOString() } : b));
+  }
+
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.22em", color: COLORS.tan, textTransform: "uppercase", marginBottom: 10 }}>
+        Live Bets
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 14 }}>
+        <TabButton active={subTab === "open"}       onClick={() => { setSubTab("open"); setPosting(false); }}>Open ({openBets.length})</TabButton>
+        <TabButton active={subTab === "taken"}      onClick={() => { setSubTab("taken"); setPosting(false); }}>Taken ({takenBets.length})</TabButton>
+        <TabButton active={subTab === "settlement"} onClick={() => { setSubTab("settlement"); setPosting(false); }}>Settlement</TabButton>
+        <button
+          onClick={() => { setPosting(true); setSubTab("open"); }}
+          style={{ fontFamily: MONO, fontSize: 13, padding: "10px 16px", background: COLORS.navy, color: "#fff", border: "none", borderRadius: 2, cursor: "pointer", textTransform: "uppercase", marginLeft: "auto" }}
+        >
+          + Post a Bet
+        </button>
+      </div>
+
+      {posting && (
+        <PostBetForm
+          players={players} rounds={rounds} matchesByRound={matchesByRound}
+          scoresByRound={scoresByRound} courses={courses}
+          onPost={postBet} onCancel={() => setPosting(false)}
+        />
+      )}
+
+      {!posting && subTab === "open" && (
+        <div>
+          {openBets.length === 0 ? (
+            <div style={{ fontFamily: MONO, fontSize: 13, color: "#a39c87", padding: "20px 0" }}>No open bets yet. Be the first to post one.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {openBets.map((bet) => (
+                <BetCard key={bet.id} bet={bet} byId={byId} rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} courses={courses} players={players} onTake={takeBet} showTake />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!posting && subTab === "taken" && (
+        <div>
+          {takenBets.length === 0 ? (
+            <div style={{ fontFamily: MONO, fontSize: 13, color: "#a39c87", padding: "20px 0" }}>No bets taken yet.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {takenBets.map((bet) => (
+                <BetCard key={bet.id} bet={bet} byId={byId} rounds={rounds} matchesByRound={matchesByRound} scoresByRound={scoresByRound} courses={courses} players={players} onTake={takeBet} showTake={false} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!posting && subTab === "settlement" && (
+        <div>
+          <SectionLabel>Settlement</SectionLabel>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 14 }}>Only shows settled bets from completed matches. Play money only.</div>
+          {transactions.length === 0 ? (
+            <div style={{ fontFamily: MONO, fontSize: 13, color: "#a39c87", padding: "20px 0" }}>No settled bets yet.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {transactions.map((t, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "12px 16px" }}>
+                  <Avatar player={byId[t.from]} size={36} />
+                  <div style={{ fontFamily: SERIF, fontSize: 15, color: COLORS.ink, flex: 1 }}>
+                    <strong>{byId[t.from]?.name}</strong>
+                    <span style={{ color: "#8a8470" }}> pays </span>
+                    <strong>{byId[t.to]?.name}</strong>
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: COLORS.flag }}>${t.amount.toFixed(2)}</div>
+                  <Avatar player={byId[t.to]} size={36} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BetCard({ bet, byId, rounds, matchesByRound, scoresByRound, courses, players, onTake, showTake }) {
+  const [taking, setTaking] = useState(false);
+  const [takerId, setTakerId] = useState("");
+
+  const r = rounds.find((r) => r.id === bet.roundId);
+  const match = r ? (matchesByRound[r.id] || []).find((m) => m.id === bet.matchId) : null;
+  const scores = r ? (scoresByRound[r.id] || emptyScores(r?.holes || 18)) : emptyScores(18);
+  const state = match && r ? matchPlayState(match, r, scores, courses) : null;
+  const currentOdds = match && r ? matchOdds(match, r, scores, courses) : null;
+
+  const posterName  = byId[bet.posterId]?.name || "?";
+  const takerName   = byId[bet.takerId]?.name  || "?";
+  const posterSideLabel = match ? (bet.posterSide === "side1" ? match.side1.map(p => p.name).join("/") : match.side2.map(p => p.name).join("/")) : "?";
+  const takerSideLabel  = match ? (bet.posterSide === "side1" ? match.side2.map(p => p.name).join("/") : match.side1.map(p => p.name).join("/")) : "?";
+  const posterWin = calcPosterWin(bet.stake, bet.posterOdds);
+  const takerStake = calcTakerStake(bet.stake, bet.posterOdds);
+
+  const settled = state?.final;
+  const posterWon = state ? ((bet.posterSide === "side1" && state.diff > 0) || (bet.posterSide === "side2" && state.diff < 0)) : null;
+  const halved = state?.diff === 0 && state?.final;
+
+  function confirmTake() {
+    if (!takerId) return;
+    onTake(bet.id, parseInt(takerId));
+    setTaking(false);
+  }
+
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${settled ? (halved ? COLORS.tan : posterWon ? COLORS.teamBooth : COLORS.teamFish) : COLORS.line}`, borderRadius: 3, padding: "12px 16px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+        <div>
+          <div style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: COLORS.ink }}>
+            {r?.label || "?"} — {posterSideLabel}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginTop: 2 }}>
+            {posterName} backs {posterSideLabel} · risks ${bet.stake} · wins ${posterWin}
+          </div>
+          {bet.status === "taken" && (
+            <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
+              {takerName} takes {takerSideLabel} · risks ${takerStake} · wins ${bet.stake}
+            </div>
+          )}
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: COLORS.tan, fontWeight: 700 }}>
+            {formatOdds(bet.posterOdds)} at post
+          </div>
+          {currentOdds && !settled && (
+            <div style={{ fontFamily: MONO, fontSize: 10, color: "#a39c87" }}>
+              live: {formatOdds(bet.posterSide === "side1" ? currentOdds.side1 : currentOdds.side2)}
+            </div>
+          )}
+          {settled && (
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: halved ? COLORS.tan : posterWon ? COLORS.teamBooth : COLORS.teamFish }}>
+              {halved ? "Halved" : posterWon ? `${posterName} wins $${posterWin}` : `${takerName} wins $${bet.stake}`}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {state && !settled && (
+        <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 8 }}>
+          {state.label}{state.holesPlayed > 0 ? ` · Thru ${state.holesPlayed}` : ""}
+        </div>
+      )}
+
+      {showTake && bet.status === "open" && !taking && (
+        <button onClick={() => setTaking(true)} style={{ fontFamily: MONO, fontSize: 12, padding: "8px 14px", background: COLORS.navy, color: "#fff", border: "none", borderRadius: 3, cursor: "pointer", textTransform: "uppercase" }}>
+          Take this bet — back {takerSideLabel} for ${takerStake}
+        </button>
+      )}
+
+      {taking && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+          <select value={takerId} onChange={(e) => setTakerId(e.target.value)} style={{ fontFamily: MONO, fontSize: 13, padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
+            <option value="">Who are you?</option>
+            {players.filter(p => p.id !== bet.posterId).map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <button onClick={confirmTake} disabled={!takerId} style={{ fontFamily: MONO, fontSize: 12, padding: "8px 14px", background: takerId ? "#2f6e47" : "#ddd6c4", color: takerId ? "#fff" : "#a39c87", border: "none", borderRadius: 3, cursor: takerId ? "pointer" : "default", textTransform: "uppercase" }}>
+            Confirm
+          </button>
+          <button onClick={() => setTaking(false)} style={{ fontFamily: MONO, fontSize: 12, padding: "8px 14px", background: "transparent", border: `1px solid ${COLORS.line}`, color: "#8a8470", borderRadius: 3, cursor: "pointer" }}>
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PostBetForm({ players, rounds, matchesByRound, scoresByRound, courses, onPost, onCancel }) {
+  const [roundId, setRoundId]   = useState("");
+  const [matchId, setMatchId]   = useState("");
+  const [side, setSide]         = useState("");
+  const [stake, setStake]       = useState("");
+  const [posterId, setPosterId] = useState("");
+
+  const round   = rounds.find((r) => r.id === parseInt(roundId));
+  const matches = round ? (matchesByRound[round.id] || []) : [];
+  const match   = matches.find((m) => m.id === matchId);
+  const scores  = round ? (scoresByRound[round.id] || emptyScores(round.holes)) : emptyScores(18);
+  const odds    = match && round ? matchOdds(match, round, scores, courses) : null;
+
+  const sideOdds  = side === "side1" ? odds?.side1 : side === "side2" ? odds?.side2 : null;
+  const posterWin = stake && sideOdds ? calcPosterWin(parseFloat(stake), sideOdds) : null;
+  const takerStake= stake && sideOdds ? calcTakerStake(parseFloat(stake), sideOdds) : null;
+
+  function handlePost() {
+    if (!roundId || !matchId || !side || !stake || !posterId) return;
+    onPost({
+      roundId: parseInt(roundId),
+      matchId,
+      posterSide: side,
+      posterId: parseInt(posterId),
+      stake: parseFloat(stake),
+      posterOdds: sideOdds,
+    });
+  }
+
+  const canPost = roundId && matchId && side && stake && posterId && sideOdds;
+
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${COLORS.navy}`, borderRadius: 3, padding: "18px 18px 14px" }}>
+      <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: COLORS.tan, marginBottom: 14 }}>Post a Bet</div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {/* Round */}
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 4 }}>Round</div>
+          <select value={roundId} onChange={(e) => { setRoundId(e.target.value); setMatchId(""); setSide(""); }}
+            style={{ fontFamily: MONO, fontSize: 13, padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 3, width: "100%" }}>
+            <option value="">Select a round…</option>
+            {rounds.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </div>
+
+        {/* Match */}
+        {matches.length > 0 && (
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 4 }}>Match</div>
+            <select value={matchId} onChange={(e) => { setMatchId(e.target.value); setSide(""); }}
+              style={{ fontFamily: MONO, fontSize: 13, padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 3, width: "100%" }}>
+              <option value="">Select a match…</option>
+              {matches.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.side1.map(p => p.name).join("/")} vs {m.side2.map(p => p.name).join("/")}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Side */}
+        {match && odds && (
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 6 }}>Pick a side</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[
+                { key: "side1", label: match.side1.map(p => p.name).join("/"), odds: odds.side1 },
+                { key: "side2", label: match.side2.map(p => p.name).join("/"), odds: odds.side2 },
+              ].map((s) => (
+                <button key={s.key} onClick={() => setSide(s.key)}
+                  style={{ fontFamily: MONO, fontSize: 13, padding: "10px 8px", border: `1px solid ${side === s.key ? COLORS.navy : COLORS.line}`, background: side === s.key ? COLORS.navy : "#fff", color: side === s.key ? "#fff" : COLORS.ink, borderRadius: 3, cursor: "pointer", textAlign: "center" }}>
+                  <div style={{ fontWeight: 700 }}>{s.label}</div>
+                  <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>{formatOdds(s.odds)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Stake */}
+        {side && (
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 4 }}>Your stake ($)</div>
+            <input type="number" min={1} value={stake} onChange={(e) => setStake(e.target.value)} placeholder="e.g. 20"
+              style={{ fontFamily: MONO, fontSize: 14, padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 3, width: 120 }} />
+            {posterWin != null && (
+              <div style={{ fontFamily: MONO, fontSize: 11, color: "#2f6e47", marginTop: 6 }}>
+                You risk ${stake} → win ${posterWin} · Taker risks ${takerStake} → wins ${stake}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Identity */}
+        {side && stake && (
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 4 }}>Who are you?</div>
+            <select value={posterId} onChange={(e) => setPosterId(e.target.value)}
+              style={{ fontFamily: MONO, fontSize: 13, padding: "8px 10px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
+              <option value="">Select your name…</option>
+              {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <button onClick={handlePost} disabled={!canPost}
+          style={{ fontFamily: MONO, fontSize: 13, padding: "10px 18px", background: canPost ? COLORS.navy : "#ddd6c4", color: canPost ? "#fff" : "#a39c87", border: "none", borderRadius: 3, cursor: canPost ? "pointer" : "default", textTransform: "uppercase" }}>
+          Post Bet
+        </button>
+        <button onClick={onCancel}
+          style={{ fontFamily: MONO, fontSize: 13, padding: "10px 18px", background: "transparent", border: `1px solid ${COLORS.line}`, color: "#8a8470", borderRadius: 3, cursor: "pointer" }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
