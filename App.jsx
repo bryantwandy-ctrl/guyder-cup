@@ -181,7 +181,7 @@ function strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx, pct
 const defaultRounds = [
   { id: 1, label: "AM Best Ball", format: "bestball", holes: 18, course: "Keep",      allowance: 0.9 },
   { id: 2, label: "PM Best Ball", format: "bestball", holes: 18, course: "Highlands", allowance: 0.9 },
-  { id: 3, label: "Singles",      format: "singles",  holes: 18, course: "Keep",      allowance: 0.9 },
+  { id: 3, label: "Singles",      format: "singles",  holes: 18, course: "Keep",      allowance: 1.0 },
 ];
 
 function emptyScores(holes) {
