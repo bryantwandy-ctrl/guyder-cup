@@ -1085,7 +1085,7 @@ export default function GolfTracker() {
           Skins
         </TabButton>
         <TabButton active={tab === "bets"} onClick={() => setTab("bets")}>
-          Bets
+          Bets{bets.filter((b) => b.status === "open").length > 0 ? ` (${bets.filter((b) => b.status === "open").length} open)` : ""}
         </TabButton>
       </div>
 
@@ -1974,41 +1974,53 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
             <div
               key={m.id}
               style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
-                alignItems: "center",
-                gap: 10,
                 background: "#fff",
                 border: `1px solid ${COLORS.line}`,
                 borderRadius: 3,
                 padding: "10px 14px",
               }}
             >
-              {/* Side 1 — left aligned */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <div style={{ display: "flex", flexShrink: 0 }}>
-                  {m.side1.map((p) => <Avatar key={p.id} player={p} size={34} />)}
+              {/* Row 1: side1 avatars + names | vs | side2 names + avatars */}
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <div style={{ display: "flex", flexShrink: 0 }}>
+                    {m.side1.map((p) => <Avatar key={p.id} player={p} size={36} />)}
+                  </div>
+                  <div style={{ fontFamily: SERIF, fontSize: 14, minWidth: 0 }}>
+                    {m.side1.map((p, i) => {
+                      const hcp = matchTee ? courseHandicap(p.index, matchTee) : null;
+                      return (
+                        <div key={p.id} style={{ color: COLORS.ink }}>
+                          {p.name}{hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  {m.side1.map((p, i) => {
-                    const hcp = matchTee ? courseHandicap(p.index, matchTee) : null;
-                    return (
-                      <span key={p.id}>
-                        {i > 0 && " / "}
-                        {p.name}
-                        {hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span>}
-                      </span>
-                    );
-                  })}
+                <div style={{ fontFamily: MONO, fontSize: 11, color: "#a39c87", textAlign: "center" }}>vs</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, justifyContent: "flex-end" }}>
+                  <div style={{ fontFamily: SERIF, fontSize: 14, minWidth: 0, textAlign: "right" }}>
+                    {m.side2.map((p, i) => {
+                      const hcp = matchTee ? courseHandicap(p.index, matchTee) : null;
+                      return (
+                        <div key={p.id} style={{ color: COLORS.ink }}>
+                          {p.name}{hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", flexShrink: 0 }}>
+                    {m.side2.map((p) => <Avatar key={p.id} player={p} size={36} />)}
+                  </div>
                 </div>
               </div>
 
-              {/* Center — tee selector + remove */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              {/* Row 2: tee selector + remove */}
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <select
                   value={m.teeId || ""}
                   onChange={(e) => changeTee(m.id, e.target.value)}
-                  style={{ fontFamily: MONO, fontSize: 12, padding: "5px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
+                  style={{ fontFamily: MONO, fontSize: 12, padding: "5px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3, flex: 1 }}
                 >
                   <option value="">No Tee Set</option>
                   {availableTees.map((t) => (
@@ -2017,29 +2029,10 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                 </select>
                 <button
                   onClick={() => removeMatch(m.id)}
-                  style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
+                  style={{ border: "none", background: "transparent", color: COLORS.flag, cursor: "pointer", fontFamily: MONO, fontSize: 11, flexShrink: 0 }}
                 >
                   Remove
                 </button>
-              </div>
-
-              {/* Side 2 — right aligned */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, justifyContent: "flex-end" }}>
-                <div style={{ minWidth: 0, textAlign: "right" }}>
-                  {m.side2.map((p, i) => {
-                    const hcp = matchTee ? courseHandicap(p.index, matchTee) : null;
-                    return (
-                      <span key={p.id}>
-                        {i > 0 && " / "}
-                        {p.name}
-                        {hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span>}
-                      </span>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", flexShrink: 0 }}>
-                  {m.side2.map((p) => <Avatar key={p.id} player={p} size={34} />)}
-                </div>
               </div>
             </div>
             );
