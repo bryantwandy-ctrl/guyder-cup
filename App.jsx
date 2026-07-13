@@ -157,25 +157,31 @@ function courseHandicap(index, tee) {
   return Math.round(index * (tee.slope / 113) + (tee.rating - tee.par));
 }
 
-function matchLowestHandicap(match, tee) {
+function adjustedCourseHandicap(index, tee, pct = 1.0) {
+  const raw = courseHandicap(index, tee);
+  if (raw == null) return null;
+  return Math.round(raw * pct);
+}
+
+function matchLowestHandicap(match, tee, pct = 1.0) {
   const all = [...match.side1, ...match.side2];
-  const hcps = all.map((p) => courseHandicap(p.index, tee)).filter((h) => h != null);
+  const hcps = all.map((p) => adjustedCourseHandicap(p.index, tee, pct)).filter((h) => h != null);
   if (hcps.length === 0) return 0;
   return Math.min(...hcps);
 }
 
-function strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx) {
-  const hcp = courseHandicap(player.index, tee);
+function strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx, pct = 1.0) {
+  const hcp = adjustedCourseHandicap(player.index, tee, pct);
   if (hcp == null) return 0;
-  const allowance = Math.min(Math.max(hcp - lowestHcp, 0), 18);
+  const strokes = Math.min(Math.max(hcp - lowestHcp, 0), 18);
   const si = courseStrokeIndex ? courseStrokeIndex[holeIdx] : holeIdx + 1;
-  return si <= allowance ? 1 : 0;
+  return si <= strokes ? 1 : 0;
 }
 
 const defaultRounds = [
-  { id: 1, label: "AM Best Ball", format: "bestball", holes: 18, course: "Keep" },
-  { id: 2, label: "PM Best Ball", format: "bestball", holes: 18, course: "Highlands" },
-  { id: 3, label: "Singles", format: "singles", holes: 18, course: "Keep" },
+  { id: 1, label: "AM Best Ball", format: "bestball", holes: 18, course: "Keep",      allowance: 0.9 },
+  { id: 2, label: "PM Best Ball", format: "bestball", holes: 18, course: "Highlands", allowance: 0.9 },
+  { id: 3, label: "Singles",      format: "singles",  holes: 18, course: "Keep",      allowance: 0.9 },
 ];
 
 function emptyScores(holes) {
@@ -217,27 +223,28 @@ function unassignedPlayers(pairings, players, team) {
   return players.filter((p) => p.team === team && !used.has(p.id));
 }
 
-function netBestBallScore(players, tee, courseStrokeIndex, lowestHcp, scores, holeIdx) {
+function netBestBallScore(players, tee, courseStrokeIndex, lowestHcp, scores, holeIdx, pct = 1.0) {
   const nets = players.map((p) => {
     const gross = scores?.[holeIdx]?.[p.id];
     if (gross == null) return null;
-    return gross - strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx);
+    return gross - strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx, pct);
   });
   if (nets.some((n) => n == null)) return null;
   return Math.min(...nets);
 }
 
-function netSinglesScore(player, tee, courseStrokeIndex, lowestHcp, scores, holeIdx) {
+function netSinglesScore(player, tee, courseStrokeIndex, lowestHcp, scores, holeIdx, pct = 1.0) {
   const gross = scores?.[holeIdx]?.[player.id];
   if (gross == null) return null;
-  return gross - strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx);
+  return gross - strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx, pct);
 }
 
 function matchPlayState(match, round, scores, courses) {
   const { format, holes } = round;
+  const pct = round.allowance ?? 1.0;
   const tee = findTee(courses, round.course, match.teeId);
   const courseStrokeIndex = courses[round.course]?.strokeIndex;
-  const lowestHcp = tee ? matchLowestHandicap(match, tee) : 0;
+  const lowestHcp = tee ? matchLowestHandicap(match, tee, pct) : 0;
   let diff = 0;
   let holesPlayed = 0;
   let decided = false;
@@ -246,11 +253,11 @@ function matchPlayState(match, round, scores, courses) {
   for (let h = 0; h < holes; h++) {
     let s1, s2;
     if (format === "bestball") {
-      s1 = netBestBallScore(match.side1, tee, courseStrokeIndex, lowestHcp, scores, h);
-      s2 = netBestBallScore(match.side2, tee, courseStrokeIndex, lowestHcp, scores, h);
+      s1 = netBestBallScore(match.side1, tee, courseStrokeIndex, lowestHcp, scores, h, pct);
+      s2 = netBestBallScore(match.side2, tee, courseStrokeIndex, lowestHcp, scores, h, pct);
     } else {
-      s1 = netSinglesScore(match.side1[0], tee, courseStrokeIndex, lowestHcp, scores, h);
-      s2 = netSinglesScore(match.side2[0], tee, courseStrokeIndex, lowestHcp, scores, h);
+      s1 = netSinglesScore(match.side1[0], tee, courseStrokeIndex, lowestHcp, scores, h, pct);
+      s2 = netSinglesScore(match.side2[0], tee, courseStrokeIndex, lowestHcp, scores, h, pct);
     }
     if (s1 == null || s2 == null) break;
     holesPlayed = h + 1;
@@ -297,15 +304,16 @@ function matchPlayState(match, round, scores, courses) {
 }
 
 function holeResult(match, round, scores, courses, holeIdx) {
+  const pct = round.allowance ?? 1.0;
   const tee = findTee(courses, round.course, match.teeId);
   const courseStrokeIndex = courses[round.course]?.strokeIndex;
-  const lowestHcp = tee ? matchLowestHandicap(match, tee) : 0;
+  const lowestHcp = tee ? matchLowestHandicap(match, tee, pct) : 0;
 
   function sideDetail(players) {
     const entries = players.map((p) => {
       const gross = scores?.[holeIdx]?.[p.id];
       if (gross == null) return null;
-      const strokes = strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx);
+      const strokes = strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx, pct);
       return { playerId: p.id, gross, net: gross - strokes, strokes };
     });
     if (entries.some((e) => e == null)) return null;
@@ -440,6 +448,7 @@ const defaultSkinsSettings = {
   buyIn: 20,
   course: "Highlands",
   teeId: "h-i",
+  allowance: 1.0,
 };
 
 // ─── Skins key functions ──────────────────────────────────────────────────────
@@ -449,22 +458,22 @@ function skinsSettingsKey() { return `${SKINS_ID}:settings`; }
 function skinsPlayersKey()  { return `${SKINS_ID}:players`; }
 
 // ─── Skins calculation ────────────────────────────────────────────────────────
-function lowestHandicapAmong(players, tee) {
-  const hcps = players.map((p) => courseHandicap(p.index, tee)).filter((h) => h != null);
+function lowestHandicapAmong(players, tee, pct = 1.0) {
+  const hcps = players.map((p) => adjustedCourseHandicap(p.index, tee, pct)).filter((h) => h != null);
   if (hcps.length === 0) return 0;
   return Math.min(...hcps);
 }
 
-function calcSkins(players, scores, tee, courseStrokeIndex, holes) {
+function calcSkins(players, scores, tee, courseStrokeIndex, holes, pct = 1.0) {
   if (!tee) return Array.from({ length: holes }, (_, h) => ({ hole: h, grossWinner: null, netWinner: null, entries: [] }));
-  const lowestHcp = lowestHandicapAmong(players, tee);
+  const lowestHcp = lowestHandicapAmong(players, tee, pct);
   const results = [];
   for (let h = 0; h < holes; h++) {
     const entries = players.map((p) => {
       const gross = scores?.[h]?.[p.id] ?? null;
       let net = null;
       if (gross != null) {
-        const strokes = strokesReceived(p, tee, courseStrokeIndex, lowestHcp, h);
+        const strokes = strokesReceived(p, tee, courseStrokeIndex, lowestHcp, h, pct);
         net = gross - strokes;
       }
       return { player: p, gross, net };
@@ -1765,8 +1774,9 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
   return (
     <div style={{ flex: 1, minWidth: 200, display: "grid", gap: 8 }}>
       {players.map((p) => {
-        const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx) : 0;
-        const hcp = tee ? courseHandicap(p.index, tee) : null;
+        const pct = round?.allowance ?? 1.0;
+        const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx, pct) : 0;
+        const hcp = tee ? adjustedCourseHandicap(p.index, tee, pct) : null;
         const isLowMan = hcp != null && hcp === lowestHcp;
         const gross = scores?.[holeIdx]?.[p.id];
         const net = gross != null ? gross - strokes : null;
@@ -1809,7 +1819,7 @@ function MatchSidePlayers({ players, holeIdx, scores, round, updateScore, tee, c
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
                   Index {p.index}
-                  {hcp != null ? ` · Course Hcp ${hcp}` : ""}
+                  {hcp != null ? ` · Course Hcp ${hcp}${pct < 1.0 ? " adj" : ""}` : ""}
                   {!isLowMan && strokes > 0 ? ` · +${strokes} This Hole` : ""}
                   {carries > 0 ? ` · Carried ${carries} Hole${carries === 1 ? "" : "s"}` : ""}
                 </div>
@@ -1988,10 +1998,11 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                   </div>
                   <div style={{ fontFamily: SERIF, fontSize: 14, minWidth: 0 }}>
                     {m.side1.map((p, i) => {
-                      const hcp = matchTee ? courseHandicap(p.index, matchTee) : null;
+                      const matchPct = round?.allowance ?? 1.0;
+                      const hcp = matchTee ? adjustedCourseHandicap(p.index, matchTee, matchPct) : null;
                       return (
                         <div key={p.id} style={{ color: COLORS.ink }}>
-                          {p.name}{hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span>}
+                          {p.name}{hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp}{matchPct < 1.0 ? " adj" : ""})</span>}
                         </div>
                       );
                     })}
@@ -2001,10 +2012,11 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
                 <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, justifyContent: "flex-end" }}>
                   <div style={{ fontFamily: SERIF, fontSize: 14, minWidth: 0, textAlign: "right" }}>
                     {m.side2.map((p, i) => {
-                      const hcp = matchTee ? courseHandicap(p.index, matchTee) : null;
+                      const matchPct = round?.allowance ?? 1.0;
+                      const hcp = matchTee ? adjustedCourseHandicap(p.index, matchTee, matchPct) : null;
                       return (
                         <div key={p.id} style={{ color: COLORS.ink }}>
-                          {p.name}{hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp})</span>}
+                          {p.name}{hcp != null && <span style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}> ({hcp}{matchPct < 1.0 ? " adj" : ""})</span>}
                         </div>
                       );
                     })}
@@ -2051,8 +2063,8 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
             )}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, marginBottom: 14 }}>
-            <PlayerPicker color={COLORS.teamBooth} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} tee={newTeeId ? findTee(courses, round.course, newTeeId) : availableTees[0] ? availableTees[0] : null} />
-            <PlayerPicker color={COLORS.teamFish}  list={unFish}  selected={selFish}  onToggle={(id) => toggleSelect(selFish,  setSelFish,  id)} tee={newTeeId ? findTee(courses, round.course, newTeeId) : availableTees[0] ? availableTees[0] : null} />
+            <PlayerPicker color={COLORS.teamBooth} list={unBooth} selected={selBooth} onToggle={(id) => toggleSelect(selBooth, setSelBooth, id)} tee={newTeeId ? findTee(courses, round.course, newTeeId) : availableTees[0] ? availableTees[0] : null} pct={round.allowance ?? 1.0} />
+            <PlayerPicker color={COLORS.teamFish}  list={unFish}  selected={selFish}  onToggle={(id) => toggleSelect(selFish,  setSelFish,  id)} tee={newTeeId ? findTee(courses, round.course, newTeeId) : availableTees[0] ? availableTees[0] : null} pct={round.allowance ?? 1.0} />
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <select
@@ -2090,12 +2102,12 @@ function Pairings({ rounds, activeRound, setActiveRound, round, players, pairing
   );
 }
 
-function PlayerPicker({ color, list, selected, onToggle, tee }) {
+function PlayerPicker({ color, list, selected, onToggle, tee, pct = 1.0 }) {
   return (
     <div style={{ display: "grid", gap: 6 }}>
       {list.map((p) => {
         const isSel = selected.includes(p.id);
-        const hcp = tee ? courseHandicap(p.index, tee) : null;
+        const hcp = tee ? adjustedCourseHandicap(p.index, tee, pct) : null;
         return (
           <button
             key={p.id}
@@ -2122,7 +2134,7 @@ function PlayerPicker({ color, list, selected, onToggle, tee }) {
             <span style={{ flex: 1, minWidth: 0, overflowWrap: "break-word" }}>{p.name}</span>
             {hcp != null && (
               <span style={{ fontFamily: MONO, fontSize: 11, opacity: 0.75, flexShrink: 0 }}>
-                {hcp}
+                {hcp}{pct < 1.0 ? " adj" : ""}
               </span>
             )}
           </button>
@@ -2430,6 +2442,15 @@ function Setup({ players, savePlayers, rounds, setRounds, alternates, courses, s
                   </option>
                 ))}
               </select>
+              <select
+                value={r.allowance ?? 0.9}
+                disabled={!isEditing}
+                onChange={(e) => updateRoundField(r.id, "allowance", parseFloat(e.target.value))}
+                style={{ ...lockedInputStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}
+              >
+                <option value={0.9}>90% allowance</option>
+                <option value={1.0}>Full (100%)</option>
+              </select>
             </div>
           ))}
         </div>
@@ -2663,7 +2684,7 @@ function SkinsTab({ skinsPlayers, saveSkinsPlayers, skinsGroups, saveSkinsGroups
   const courseStrokeIndex = courses[skinsSettings.course]?.strokeIndex;
 
   const skinResults = useMemo(
-    () => calcSkins(skinsPlayers, skinsScores, tee, courseStrokeIndex, 18),
+    () => calcSkins(skinsPlayers, skinsScores, tee, courseStrokeIndex, 18, skinsSettings.allowance ?? 1.0),
     [skinsPlayers, skinsScores, tee, courseStrokeIndex]
   );
 
@@ -2832,7 +2853,7 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
   skinsPlayers.forEach((p) => (byId[p.id] = p));
   const activeGroup = skinsGroups.find((g) => g.id === activeGroupId);
   const groupPlayers = activeGroup ? activeGroup.playerIds.map((id) => byId[id]).filter(Boolean) : [];
-  const lowestHcp = tee ? lowestHandicapAmong(skinsPlayers, tee) : 0;
+  const lowestHcp = tee ? lowestHandicapAmong(skinsPlayers, tee, skinsSettings?.allowance ?? 1.0) : 0;
 
   if (!activeGroup) {
     return (
@@ -2897,8 +2918,9 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
           const netWinnerId   = holeResult?.netWinner?.id   ?? null;
 
           return groupPlayers.map((p) => {
-            const hcp = tee ? courseHandicap(p.index, tee) : null;
-            const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx) : 0;
+            const skinsPct = skinsSettings?.allowance ?? 1.0;
+            const hcp = tee ? adjustedCourseHandicap(p.index, tee, skinsPct) : null;
+            const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, holeIdx, skinsPct) : 0;
             const gross = skinsScores?.[holeIdx]?.[p.id];
             const net = gross != null ? gross - strokes : null;
             const isKeeper     = activeGroup.scorekeeperId === p.id;
@@ -2916,7 +2938,7 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
                       {isNetWinner   && <span style={{ fontFamily: MONO, fontSize: 10, color: COLORS.teamFish,  marginLeft: 6, textTransform: "uppercase" }}>Net Winner</span>}
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>
-                      Index {p.index}{hcp != null ? ` · Course Hcp ${hcp}` : ""}{strokes > 0 ? ` · +${strokes} This Hole` : ""}
+                      Index {p.index}{hcp != null ? ` · Course Hcp ${hcp}${skinsPct < 1.0 ? " adj" : ""}` : ""}{strokes > 0 ? ` · +${strokes} This Hole` : ""}
                     </div>
                   </div>
                 </div>
@@ -2944,7 +2966,7 @@ function SkinsScoreEntry({ skinsPlayers, skinsGroups, skinsScores, updateSkinsSc
 
 // ─── Skins Leaderboard ────────────────────────────────────────────────────────
 function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, skinsSettings, playerSkinCounts, skinValue }) {
-  const lowestHcp = tee ? lowestHandicapAmong(skinsPlayers, tee) : 0;
+  const lowestHcp = tee ? lowestHandicapAmong(skinsPlayers, tee, skinsSettings?.allowance ?? 1.0) : 0;
   const par = tee?.par || 72;
 
   const standings = useMemo(() => {
@@ -2953,7 +2975,8 @@ function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, s
       for (let h = 0; h < 18; h++) {
         const gross = skinsScores?.[h]?.[p.id];
         if (gross != null) {
-          const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, h) : 0;
+          const skinsPct2 = skinsSettings?.allowance ?? 1.0;
+          const strokes = tee ? strokesReceived(p, tee, courseStrokeIndex, lowestHcp, h, skinsPct2) : 0;
           grossTotal += gross;
           netTotal   += gross - strokes;
           holesPlayed++;
@@ -3079,6 +3102,12 @@ function SkinsSetup({ skinsPlayers, saveSkinsPlayers, skinsGroups, saveSkinsGrou
           <select value={skinsSettings.teeId} disabled={!isEditing} onChange={(e) => updateSetting("teeId", e.target.value)}
             style={{ ...lockedStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
             {availableTees.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470" }}>Allowance</div>
+          <select value={skinsSettings.allowance ?? 1.0} disabled={!isEditing} onChange={(e) => updateSetting("allowance", parseFloat(e.target.value))}
+            style={{ ...lockedStyle, fontFamily: MONO, fontSize: 13, padding: "6px 8px", border: `1px solid ${COLORS.line}`, borderRadius: 3 }}>
+            <option value={1.0}>Full (100%)</option>
+            <option value={0.9}>90% allowance</option>
           </select>
         </div>
       </div>
