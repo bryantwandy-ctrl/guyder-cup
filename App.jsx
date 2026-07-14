@@ -173,9 +173,12 @@ function matchLowestHandicap(match, tee, pct = 1.0) {
 function strokesReceived(player, tee, courseStrokeIndex, lowestHcp, holeIdx, pct = 1.0) {
   const hcp = adjustedCourseHandicap(player.index, tee, pct);
   if (hcp == null) return 0;
-  const strokes = Math.min(Math.max(hcp - lowestHcp, 0), 18);
+  const diff = Math.max(hcp - lowestHcp, 0);
   const si = courseStrokeIndex ? courseStrokeIndex[holeIdx] : holeIdx + 1;
-  return si <= strokes ? 1 : 0;
+  let strokes = 0;
+  if (si <= diff) strokes += 1;
+  if (diff > 18 && si <= diff - 18) strokes += 1;
+  return strokes;
 }
 
 const defaultRounds = [
@@ -2802,7 +2805,7 @@ function SkinsDashboard({ skinResults, skinsPlayers, playerSkinCounts, totalPot,
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: "#2f6e47" }}>${payout.toFixed(2)}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: "#2f6e47" }}>${payout}</div>
                   <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470" }}>{total} skin{total === 1 ? "" : "s"}</div>
                 </div>
               </div>
@@ -3035,7 +3038,7 @@ function SkinsLeaderboard({ skinsPlayers, skinsScores, tee, courseStrokeIndex, s
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.grossToPar < 0 ? "#2f6e47" : s.grossToPar > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.grossToPar, s.holesPlayed)}</div>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "center", color: s.netToPar   < 0 ? "#2f6e47" : s.netToPar   > 0 ? COLORS.flag : COLORS.ink }}>{ftp(s.netToPar,   s.holesPlayed)}</div>
               <div style={{ fontFamily: MONO, fontSize: 12, color: "#8a8470", textAlign: "center" }}>{s.holesPlayed > 0 ? s.holesPlayed : "—"}</div>
-              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "right", color: payout > 0 ? "#2f6e47" : "#d8d0bc" }}>{payout > 0 ? `$${payout.toFixed(2)}` : "—"}</div>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "right", color: payout > 0 ? "#2f6e47" : "#d8d0bc" }}>{payout > 0 ? `$${payout}` : "—"}</div>
             </div>
           );
         })}
@@ -3183,13 +3186,13 @@ function SkinsSetup({ skinsPlayers, saveSkinsPlayers, skinsGroups, saveSkinsGrou
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function calcTakerStake(posterStake, posterOdds) {
-  if (posterOdds < 0) return Math.round(posterStake * 100 / Math.abs(posterOdds) * 100) / 100;
-  return Math.round(posterStake * posterOdds / 100 * 100) / 100;
+  if (posterOdds < 0) return Math.round(posterStake * 100 / Math.abs(posterOdds));
+  return Math.round(posterStake * posterOdds / 100);
 }
 
 function calcPosterWin(posterStake, posterOdds) {
-  if (posterOdds < 0) return Math.round(posterStake * 100 / Math.abs(posterOdds) * 100) / 100;
-  return Math.round(posterStake * posterOdds / 100 * 100) / 100;
+  if (posterOdds < 0) return Math.round(posterStake * 100 / Math.abs(posterOdds));
+  return Math.round(posterStake * posterOdds / 100);
 }
 
 function settleBets(bets, players, rounds, matchesByRound, scoresByRound, courses) {
@@ -3286,6 +3289,14 @@ function BetsTab({ bets, saveBets, players, rounds, matchesByRound, scoresByRoun
         </button>
       </div>
 
+      <div style={{ background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 3, padding: "12px 14px", marginBottom: 16, fontFamily: MONO, fontSize: 12, color: "#8a8470", lineHeight: 1.7 }}>
+        <div style={{ color: COLORS.navy, fontWeight: 700, marginBottom: 4 }}>How it works</div>
+        <div>📌 <strong>Post a bet</strong> — pick a match, pick your side, set your stake. The odds are based on the live line. Your potential win is shown before you post.</div>
+        <div>🤝 <strong>Take a bet</strong> — tap "Take this bet" on any open bet to accept the other side. Once taken, the bet is locked and can't be changed by either party.</div>
+        <div>↩️ <strong>Retract</strong> — you can pull back your own open bet at any time, as long as no one has taken it yet.</div>
+        <div>💰 <strong>Settlement</strong> — once matches finish, the Settlement tab shows who owes who and how much. Play money only, honor system.</div>
+      </div>
+
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 14 }}>
         <TabButton active={subTab === "open"}       onClick={() => { setSubTab("open"); setPosting(false); }}>Open ({openBets.length})</TabButton>
         <TabButton active={subTab === "taken"}      onClick={() => { setSubTab("taken"); setPosting(false); }}>Taken ({takenBets.length})</TabButton>
@@ -3350,7 +3361,7 @@ function BetsTab({ bets, saveBets, players, rounds, matchesByRound, scoresByRoun
                     <span style={{ color: "#8a8470" }}> pays </span>
                     <strong>{byId[t.to]?.name}</strong>
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: COLORS.flag }}>${t.amount.toFixed(2)}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: COLORS.flag }}>${t.amount}</div>
                   <Avatar player={byId[t.to]} size={36} />
                 </div>
               ))}
