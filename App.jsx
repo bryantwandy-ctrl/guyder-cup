@@ -3294,7 +3294,7 @@ function BetsTab({ bets, saveBets, players, rounds, matchesByRound, scoresByRoun
         <div>📌 <strong>Post a bet</strong> — pick a match, pick your side, set your stake. The odds are based on the live line. Your potential win is shown before you post.</div>
         <div>🤝 <strong>Take a bet</strong> — tap "Take this bet" on any open bet to accept the other side. Once taken, the bet is locked and can't be changed by either party.</div>
         <div>↩️ <strong>Retract</strong> — you can pull back your own open bet at any time, as long as no one has taken it yet.</div>
-        <div>💰 <strong>Settlement</strong> — once matches finish, the Settlement tab shows who owes who and how much. Play money only, honor system.</div>
+        <div>💰 <strong>Settlement</strong> — once matches finish, the Settlement tab shows who owes who and how much. Honor system.</div>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${COLORS.line}`, paddingBottom: 14 }}>
@@ -3348,7 +3348,7 @@ function BetsTab({ bets, saveBets, players, rounds, matchesByRound, scoresByRoun
       {!posting && subTab === "settlement" && (
         <div>
           <SectionLabel>Settlement</SectionLabel>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 14 }}>Only shows settled bets from completed matches. Play money only.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: "#8a8470", marginBottom: 14 }}>Only shows settled bets from completed matches.</div>
           {transactions.length === 0 ? (
             <div style={{ fontFamily: MONO, fontSize: 13, color: "#a39c87", padding: "20px 0" }}>No settled bets yet.</div>
           ) : (
